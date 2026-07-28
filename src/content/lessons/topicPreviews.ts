@@ -1,6 +1,7 @@
+import { curriculumTopics } from '@/content/curriculum/topics'
 import type { TopicPreview } from '@/types/domain'
 
-export const topicPreviews: Record<string, TopicPreview> = {
+const authoredTopicPreviews: Record<string, TopicPreview> = {
   'natural-numbers': {
     topicId: 'natural-numbers',
     hook: 'Зберемо однакові групи й самі побачимо, як народжується множення.',
@@ -137,6 +138,30 @@ export const topicPreviews: Record<string, TopicPreview> = {
     challengeLabel: 'Урівноважити терези',
   },
 }
+
+function buildExplorationPreview(topic: (typeof curriculumTopics)[number]): TopicPreview {
+  return {
+    topicId: topic.id,
+    hook: `${topic.shortDescription} Почнемо з короткого дослідження на конкретному прикладі.`,
+    question: `Що найкраще допоможе розібратися з темою «${topic.title}»?`,
+    choices: [
+      'Побудувати модель і перевірити закономірність на прикладі',
+      'Вгадати відповідь, не читаючи умову',
+      'Запам’ятати один результат без пояснення',
+    ],
+    correctChoiceIndex: 0,
+    explanation:
+      'Модель, означення та перевірений приклад допомагають зрозуміти правило, а не лише запам’ятати відповідь.',
+    challengeLabel: 'Дослідити приклад',
+  }
+}
+
+export const topicPreviews: Record<string, TopicPreview> = Object.fromEntries(
+  curriculumTopics.map((topic) => [
+    topic.id,
+    authoredTopicPreviews[topic.id] ?? buildExplorationPreview(topic),
+  ]),
+)
 
 export function findTopicPreview(topicId: string): TopicPreview | undefined {
   return topicPreviews[topicId]

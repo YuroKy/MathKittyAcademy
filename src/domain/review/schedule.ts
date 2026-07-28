@@ -12,7 +12,9 @@ export function scheduleNextReview(
   const days =
     result === 'incorrect'
       ? appConfig.reviewIntervalsDays[0]
-      : appConfig.reviewIntervalsDays[Math.min(intervalStep, appConfig.reviewIntervalsDays.length - 1)]
+      : appConfig.reviewIntervalsDays[
+          Math.min(intervalStep, appConfig.reviewIntervalsDays.length - 1)
+        ]
 
   if (days === undefined) {
     throw new Error('Не налаштовано інтервал повторення.')

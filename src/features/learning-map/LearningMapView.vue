@@ -110,7 +110,7 @@ const searchResults = computed<TopicSearchResult[]>(() => {
         })
         .map((topic) => ({ location, topic })),
     )
-    .slice(0, 12)
+    .slice(0, 80)
 })
 
 const statusLabels: Record<AtlasTopicStatus, string> = {
@@ -443,6 +443,14 @@ function launchSelected(preview = false): void {
           {{ selectedTopic.title }}
         </h3>
         <p>{{ selectedTopic.shortDescription }}</p>
+        <section class="topic-modal__outline" aria-label="Зміст теми">
+          <strong>У цій темі</strong>
+          <ul>
+            <li v-for="subtopic in selectedTopic.subtopics" :key="subtopic">
+              {{ subtopic }}
+            </li>
+          </ul>
+        </section>
         <ContentTags
           class="topic-modal__tags"
           :tags="selectedTopic.tags"

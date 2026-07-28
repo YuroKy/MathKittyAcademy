@@ -25,12 +25,7 @@ import { useProfileStore } from '@/stores/profile'
 import type { ExerciseInstance, LearningSession } from '@/types/domain'
 
 type LessonStage =
-  | 'introduction'
-  | 'prediction'
-  | 'explore'
-  | 'guided-example'
-  | 'practice'
-  | 'summary'
+  'introduction' | 'prediction' | 'explore' | 'guided-example' | 'practice' | 'summary'
 
 interface InteractionState extends Record<string, unknown> {
   predictionIndex?: number
@@ -156,8 +151,7 @@ async function initializeFullSession(reset = false): Promise<void> {
     await savePosition(stage.value, exerciseIndex.value, seeds)
   } catch (error) {
     console.error('Failed to start lesson', error)
-    errorMessage.value =
-      'Не вдалося відкрити урок. Завершений прогрес у безпеці — спробуй ще раз.'
+    errorMessage.value = 'Не вдалося відкрити урок. Завершений прогрес у безпеці — спробуй ще раз.'
   }
 }
 
@@ -180,9 +174,7 @@ function isLessonStage(value: string | undefined): value is LessonStage {
 
 function serializeInteractionState(): InteractionState {
   return {
-    ...(predictionIndex.value !== undefined
-      ? { predictionIndex: predictionIndex.value }
-      : {}),
+    ...(predictionIndex.value !== undefined ? { predictionIndex: predictionIndex.value } : {}),
     groupCounts: [...groupCounts.value],
     fractionParts: [...fractionParts.value],
     guidedStepCount: guidedStepCount.value,
@@ -263,7 +255,8 @@ async function submitAnswer(): Promise<void> {
   const exercise = currentExercise.value
   const activeSession = session.value
   const profileId = profileStore.activeProfile?.id
-  if (!exercise || !activeSession || !profileId || answer.value.trim() === '' || saving.value) return
+  if (!exercise || !activeSession || !profileId || answer.value.trim() === '' || saving.value)
+    return
 
   saving.value = true
   try {
@@ -353,7 +346,12 @@ async function nextExercise(): Promise<void> {
 <template>
   <section class="lesson-page">
     <header class="lesson-header">
-      <button class="icon-button" type="button" aria-label="Вийти з уроку" @click="router.push('/map')">
+      <button
+        class="icon-button"
+        type="button"
+        aria-label="Вийти з уроку"
+        @click="router.push('/map')"
+      >
         ×
       </button>
       <div>
@@ -369,7 +367,7 @@ async function nextExercise(): Promise<void> {
         />
         <ProgressBar :value="overallProgress" label="Прогрес уроку" />
       </div>
-      <span class="lesson-time">≈ {{ previewOnly ? 3 : topic?.estimatedMinutes ?? 10 }} хв</span>
+      <span class="lesson-time">≈ {{ previewOnly ? 3 : (topic?.estimatedMinutes ?? 10) }} хв</span>
     </header>
 
     <div v-if="loading" class="loading-state" role="status">Мурка готує інтерактиви…</div>
@@ -388,7 +386,9 @@ async function nextExercise(): Promise<void> {
       <template v-if="stage === 'introduction'">
         <MascotCard
           mood="explaining"
-          :message="pilotLesson?.mascotMessage ?? 'За три хвилини торкнемося головної ідеї цієї теми.'"
+          :message="
+            pilotLesson?.mascotMessage ?? 'За три хвилини торкнемося головної ідеї цієї теми.'
+          "
         />
         <div class="lesson-copy">
           <span class="eyebrow">{{ previewOnly ? 'Вільна спроба' : 'Крок 1 · Старт' }}</span>
@@ -396,9 +396,7 @@ async function nextExercise(): Promise<void> {
           <p>{{ pilotLesson?.introText ?? preview.hook }}</p>
           <div class="lesson-promise">
             <span aria-hidden="true">✦</span>
-            <p>
-              Тут не буде довгого вступу: спочатку твоя гіпотеза, потім — взаємодія.
-            </p>
+            <p>Тут не буде довгого вступу: спочатку твоя гіпотеза, потім — взаємодія.</p>
           </div>
         </div>
       </template>
@@ -444,10 +442,14 @@ async function nextExercise(): Promise<void> {
       <template v-else-if="stage === 'practice' && currentExercise">
         <div class="exercise-shell">
           <div class="exercise-meta">
-            <span class="eyebrow">Твоя спроба · {{ exerciseIndex + 1 }}/{{ exercises.length }}</span>
+            <span class="eyebrow"
+              >Твоя спроба · {{ exerciseIndex + 1 }}/{{ exercises.length }}</span
+            >
             <span class="difficulty-pill">інтерактивна основа</span>
           </div>
-          <h1>{{ currentExercise.topicId === 'fraction-meaning' ? 'Запиши дріб' : 'Обчисли вираз' }}</h1>
+          <h1>
+            {{ currentExercise.topicId === 'fraction-meaning' ? 'Запиши дріб' : 'Обчисли вираз' }}
+          </h1>
           <p v-if="currentExercise.topicId === 'fraction-meaning'" class="exercise-question">
             {{ currentExercise.prompt }}
           </p>
@@ -465,7 +467,9 @@ async function nextExercise(): Promise<void> {
                 v-model="answer"
                 :inputmode="currentExercise.kind === 'fractionInput' ? 'text' : 'numeric'"
                 autocomplete="off"
-                :placeholder="currentExercise.kind === 'fractionInput' ? 'Наприклад, 3/6' : 'Введи число'"
+                :placeholder="
+                  currentExercise.kind === 'fractionInput' ? 'Наприклад, 3/6' : 'Введи число'
+                "
                 :aria-invalid="feedback === 'incorrect'"
                 :disabled="feedback === 'correct' || feedback === 'revealed'"
                 autofocus
@@ -481,7 +485,9 @@ async function nextExercise(): Promise<void> {
           </form>
 
           <div class="exercise-tools">
-            <button type="button" @click="showHint"><span aria-hidden="true">✦</span> Підказка</button>
+            <button type="button" @click="showHint">
+              <span aria-hidden="true">✦</span> Підказка
+            </button>
             <button type="button" @click="revealAnswer">Не знаю</button>
           </div>
 
@@ -493,7 +499,10 @@ async function nextExercise(): Promise<void> {
           <div class="feedback-region" aria-live="polite">
             <div v-if="feedback === 'correct'" class="feedback feedback--correct">
               <span aria-hidden="true">✓</span>
-              <div><strong>Так, це працює!</strong><p>{{ currentExercise.solutionSteps[0] }}</p></div>
+              <div>
+                <strong>Так, це працює!</strong>
+                <p>{{ currentExercise.solutionSteps[0] }}</p>
+              </div>
             </div>
             <div v-else-if="feedback === 'incorrect'" class="feedback feedback--incorrect">
               <span aria-hidden="true">↻</span>
@@ -536,11 +545,7 @@ async function nextExercise(): Promise<void> {
           <span class="eyebrow">{{ previewOnly ? 'Прев’ю завершено' : 'Заняття завершено' }}</span>
           <h1>{{ previewOnly ? 'Ідею спробовано' : 'Ще один надійний крок' }}</h1>
           <p>
-            {{
-              previewOnly
-                ? preview.explanation
-                : pilotLesson?.summaryText
-            }}
+            {{ previewOnly ? preview.explanation : pilotLesson?.summaryText }}
           </p>
           <div v-if="!previewOnly" class="reward-row">
             <span><strong>+40</strong> XP</span>
@@ -548,8 +553,8 @@ async function nextExercise(): Promise<void> {
             <span><strong>↻</strong> повторення</span>
           </div>
           <div v-else-if="!pilotLesson" class="preview-coming-soon">
-            Повний інтерактивний урок для цієї теми буде наступним контентним оновленням.
-            Прев’ю вже доступне без жодних передумов.
+            Повний інтерактивний урок для цієї теми буде наступним контентним оновленням. Прев’ю вже
+            доступне без жодних передумов.
           </div>
         </div>
       </template>

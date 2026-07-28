@@ -14,7 +14,10 @@ const emit = defineEmits<{
 
 const lastAttemptCorrect = ref<boolean>()
 const remainingIndexes = computed(() =>
-  props.steps.map((_, index) => index).filter((index) => index >= props.revealedCount).reverse(),
+  props.steps
+    .map((_, index) => index)
+    .filter((index) => index >= props.revealedCount)
+    .reverse(),
 )
 
 function chooseStep(index: number): void {

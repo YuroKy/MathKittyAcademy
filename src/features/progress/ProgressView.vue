@@ -10,7 +10,7 @@ import {
   type LearningStats,
 } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { GamificationState, TopicProgress } from '@/types/domain'
+import type { GamificationState, SchoolGrade, TopicProgress } from '@/types/domain'
 
 const profileStore = useProfileStore()
 const gamification = ref<GamificationState>()
@@ -40,33 +40,31 @@ const weekdayLabels = computed(() => {
   return Array.from({ length: 7 }, (_, index) => {
     const day = new Date(today)
     day.setDate(today.getDate() - (6 - index))
-    return new Intl.DateTimeFormat('uk-UA', { weekday: 'short' })
-      .format(day)
-      .replace('.', '')
+    return new Intl.DateTimeFormat('uk-UA', { weekday: 'short' }).format(day).replace('.', '')
   })
 })
 
 const topicGroups = computed(() => {
-  const definitions = [
-    { id: 'foundation', title: 'Основи', icon: 'paw' as const, tone: 'pink' },
-    { id: 'fractions', title: 'Дроби', icon: 'ribbon' as const, tone: 'mint' },
-    {
-      id: 'decimals-percent',
-      title: 'Десяткові дроби й відсотки',
-      icon: 'star' as const,
-      tone: 'blue',
-    },
-    { id: 'pre-algebra', title: 'Рівняння', icon: 'crown' as const, tone: 'lavender' },
+  const definitions: {
+    grade: SchoolGrade
+    title: string
+    icon: 'paw' | 'ribbon' | 'star' | 'crown' | 'target'
+    tone: string
+  }[] = [
+    { grade: 5, title: '5 клас', icon: 'paw' as const, tone: 'pink' },
+    { grade: 6, title: '6 клас', icon: 'ribbon' as const, tone: 'mint' },
+    { grade: 7, title: '7 клас', icon: 'star' as const, tone: 'blue' },
+    { grade: 8, title: '8 клас', icon: 'crown' as const, tone: 'lavender' },
+    { grade: 9, title: '9 клас', icon: 'target' as const, tone: 'pink' },
   ]
 
   return definitions.map((group) => {
-    const topics = curriculumTopics.filter((topic) => topic.groupId === group.id)
+    const topics = curriculumTopics.filter((topic) => topic.gradeLevels.includes(group.grade))
     const mastery =
       topics.reduce(
         (sum, topic) =>
           sum +
-          (topicProgress.value.find((progress) => progress.topicId === topic.id)?.mastery ??
-            0),
+          (topicProgress.value.find((progress) => progress.topicId === topic.id)?.mastery ?? 0),
         0,
       ) / topics.length
     return { ...group, mastery: Math.round(mastery) }
@@ -176,7 +174,10 @@ onMounted(async () => {
               <AppIcon name="clock" />
             </span>
             <small>Час навчання</small>
-            <strong>{{ Math.floor(stats.studyMinutes / 60) }} год {{ stats.studyMinutes % 60 }} хв</strong>
+            <strong
+              >{{ Math.floor(stats.studyMinutes / 60) }} год
+              {{ stats.studyMinutes % 60 }} хв</strong
+            >
             <p>за завершеними заняттями</p>
           </article>
           <article class="journal-mascot-note">
@@ -230,7 +231,7 @@ onMounted(async () => {
             </div>
           </div>
           <div class="topic-progress-list">
-            <div v-for="group in topicGroups" :key="group.id">
+            <div v-for="group in topicGroups" :key="group.grade">
               <span :class="['topic-progress-icon', `topic-progress-icon--${group.tone}`]">
                 <AppIcon :name="group.icon" />
               </span>

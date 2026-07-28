@@ -34,7 +34,8 @@ test('lets a learner preview an advanced topic in any order', async ({ page }) =
   await createProfile(page, 'Леся')
   await page.getByRole('link', { name: 'Карта навчання' }).click()
 
-  await page.getByRole('button', { name: /Відсотки/ }).click()
+  await page.getByRole('searchbox', { name: 'Знайти тему на карті' }).fill('Відсотки')
+  await page.getByRole('button', { name: /Поняття відсотка/ }).click()
   await expect(page.getByRole('heading', { name: 'Можна спробувати просто зараз' })).toBeVisible()
   await page.getByRole('button', { name: 'Спробувати 3-хв прев’ю' }).click()
 

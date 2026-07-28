@@ -69,7 +69,9 @@ function addToGroup(index: number): void {
     <div :class="['interaction-result', { 'interaction-result--complete': complete }]">
       <span>{{ total }}</span>
       <p>
-        <strong>{{ complete ? `${groups} × ${perGroup} = ${target}` : `Зібрано ${total} із ${target}` }}</strong>
+        <strong>{{
+          complete ? `${groups} × ${perGroup} = ${target}` : `Зібрано ${total} із ${target}`
+        }}</strong>
         {{ complete ? 'Ти щойно побудувала множення власноруч.' : 'Продовжуй наповнювати групи.' }}
       </p>
     </div>

@@ -25,9 +25,9 @@ describe('interactive lesson blocks', () => {
     await wrapper.setProps({ selectedIndex: 0 })
     expect(wrapper.text()).toContain('Гарна гіпотеза.')
     expect(wrapper.text()).toContain('Два і два утворюють чотири.')
-    expect(wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined)).toBe(
-      true,
-    )
+    expect(
+      wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined),
+    ).toBe(true)
   })
 
   it('completes a fraction only after selecting the target number of parts', async () => {

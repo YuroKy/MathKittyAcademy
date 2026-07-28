@@ -15,8 +15,8 @@ const profileStore = useProfileStore()
       <span class="eyebrow">Твоя затишна математична академія</span>
       <h1>{{ appConfig.productName }}</h1>
       <p class="welcome-lead">
-        Відновимо математику з основ і крок за кроком підготуємося до НМТ — без сорому,
-        поспіху й перевантаження.
+        Відновимо математику з основ і крок за кроком підготуємося до НМТ — без сорому, поспіху й
+        перевантаження.
       </p>
 
       <div class="welcome-actions">

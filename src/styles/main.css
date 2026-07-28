@@ -4329,9 +4329,33 @@ p {
   margin: 0 auto 20px;
 }
 
+.topic-modal__outline {
+  width: 100%;
+  max-height: 200px;
+  padding: 0.9rem 1rem;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--lavender-300) 72%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--paper) 88%, var(--lavender-100));
+  text-align: left;
+}
+
+.topic-modal__outline strong {
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+.topic-modal__outline ul {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--ink-muted);
+}
+
 .topic-modal__tags {
   justify-content: center;
-  margin: -7px 0 20px;
+  margin: 13px 0 20px;
 }
 
 .status-chip {

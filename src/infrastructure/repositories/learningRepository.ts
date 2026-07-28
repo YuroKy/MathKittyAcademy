@@ -64,8 +64,7 @@ class LearningRepository {
     const sessionMinutes = (session: LearningSession): number => {
       if (!session.completedAt) return 0
       const duration = Math.round(
-        (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) /
-          60_000,
+        (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60_000,
       )
       return Math.min(60, Math.max(1, duration))
     }
@@ -80,18 +79,12 @@ class LearningRepository {
       completedLessons: completedLessons.length,
       correctAttempts: attempts.filter((attempt) => attempt.isCorrect).length,
       totalAttempts: attempts.length,
-      studyMinutes: completedLessons.reduce(
-        (total, session) => total + sessionMinutes(session),
-        0,
-      ),
+      studyMinutes: completedLessons.reduce((total, session) => total + sessionMinutes(session), 0),
       weeklyMinutes,
     }
   }
 
-  async findActiveLesson(
-    profileId: string,
-    topicId: string,
-  ): Promise<LearningSession | undefined> {
+  async findActiveLesson(profileId: string, topicId: string): Promise<LearningSession | undefined> {
     const sessions = await db.sessions
       .where('[profileId+topicId]')
       .equals([profileId, topicId])
@@ -194,13 +187,7 @@ class LearningRepository {
 
     await db.transaction(
       'rw',
-      [
-        db.sessions,
-        db.topicProgress,
-        db.gamification,
-        db.reviewItems,
-        db.mistakes,
-      ],
+      [db.sessions, db.topicProgress, db.gamification, db.reviewItems, db.mistakes],
       async () => {
         await db.sessions.update(session.id, {
           status: 'completed',
@@ -233,9 +220,7 @@ class LearningRepository {
               'first-lesson-completed',
             ]),
           ],
-          unlockedCosmeticIds: currentGamification?.unlockedCosmeticIds ?? [
-            'desk-pink-notebook',
-          ],
+          unlockedCosmeticIds: currentGamification?.unlockedCosmeticIds ?? ['desk-pink-notebook'],
         })
 
         for (const skillId of skillIds) {

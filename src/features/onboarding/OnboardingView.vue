@@ -35,6 +35,11 @@ function previous(): void {
   else router.push('/welcome')
 }
 
+function skipExamDate(): void {
+  form.examDate = ''
+  next()
+}
+
 async function finish(): Promise<void> {
   saving.value = true
   errorMessage.value = ''
@@ -106,7 +111,7 @@ async function finish(): Promise<void> {
             <span>Орієнтовна дата</span>
             <input v-model="form.examDate" type="date" />
           </label>
-          <button class="text-button" type="button" @click="form.examDate = ''; next()">
+          <button class="text-button" type="button" @click="skipExamDate">
             Поки не знаю
           </button>
         </div>
@@ -141,7 +146,7 @@ async function finish(): Promise<void> {
           <p>Навіть 10 хвилин — достатньо для стабільного прогресу.</p>
           <div class="choice-grid">
             <button
-              v-for="minutes in ([10, 15, 20] as const)"
+              v-for="minutes in [10, 15, 20] as const"
               :key="minutes"
               type="button"
               :class="{ selected: form.dailyGoalMinutes === minutes }"
@@ -188,8 +193,8 @@ async function finish(): Promise<void> {
           <span class="eyebrow">Готово до першого кроку</span>
           <h1>Почнемо з основ</h1>
           <p>
-            Поки повна діагностика готується, можна пройти перше коротке заняття й
-            перевірити, як усе працює.
+            Поки повна діагностика готується, можна пройти перше коротке заняття й перевірити, як
+            усе працює.
           </p>
         </div>
       </template>
@@ -198,11 +203,7 @@ async function finish(): Promise<void> {
 
       <footer class="onboarding-actions">
         <BaseButton variant="ghost" @click="previous">Назад</BaseButton>
-        <BaseButton
-          v-if="step < totalSteps - 1"
-          :disabled="!canContinue"
-          @click="next"
-        >
+        <BaseButton v-if="step < totalSteps - 1" :disabled="!canContinue" @click="next">
           Продовжити
         </BaseButton>
         <BaseButton v-else :disabled="saving" @click="finish">

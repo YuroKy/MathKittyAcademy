@@ -43,10 +43,7 @@ export function generateNaturalNumbersExercise(
       kind: 'numericInput',
       prompt: `${a} + ${b} = ?`,
       expectedAnswer: String(a + b),
-      hints: [
-        `Розклади ${b} на десятки й одиниці.`,
-        `Спочатку додай десятки, потім — одиниці.`,
-      ],
+      hints: [`Розклади ${b} на десятки й одиниці.`, `Спочатку додай десятки, потім — одиниці.`],
       solutionSteps: [`Додаємо числа: ${a} + ${b} = ${a + b}.`, `Отже, відповідь — ${a + b}.`],
     }
   }
@@ -69,7 +66,10 @@ export function generateNaturalNumbersExercise(
         `Подумай, скільки треба додати до ${b}, щоб отримати ${a}.`,
         `Перевір результат додаванням: відповідь + ${b} має дорівнювати ${a}.`,
       ],
-      solutionSteps: [`Віднімаємо ${b} від ${a}: отримуємо ${result}.`, `${result} + ${b} = ${a}, тож відповідь правильна.`],
+      solutionSteps: [
+        `Віднімаємо ${b} від ${a}: отримуємо ${result}.`,
+        `${result} + ${b} = ${a}, тож відповідь правильна.`,
+      ],
     }
   }
 
@@ -105,8 +105,7 @@ export function generateFractionMeaningExercise(seed: string, index: number): Ex
   const random = seededRandom(`fraction-meaning:${seed}:${index}`)
   const denominators = [4, 6, 8]
   const denominator = denominators[integer(random, 0, denominators.length - 1)] ?? 6
-  const numerator =
-    index === 2 ? denominator / 2 : integer(random, 1, Math.max(1, denominator - 1))
+  const numerator = index === 2 ? denominator / 2 : integer(random, 1, Math.max(1, denominator - 1))
   const expectedAnswer = index === 2 ? '1/2' : `${numerator}/${denominator}`
 
   return {
@@ -137,7 +136,5 @@ export function generateFractionMeaningExercise(seed: string, index: number): Ex
 }
 
 export function buildFractionMeaningExerciseSet(sessionId: string): ExerciseInstance[] {
-  return [0, 1, 2].map((index) =>
-    generateFractionMeaningExercise(`${sessionId}:fraction`, index),
-  )
+  return [0, 1, 2].map((index) => generateFractionMeaningExercise(`${sessionId}:fraction`, index))
 }

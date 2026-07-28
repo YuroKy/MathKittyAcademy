@@ -107,10 +107,7 @@ router.beforeEach(async (to) => {
     return { name: profileStore.hasProfiles ? 'profiles' : 'welcome' }
   }
 
-  if (
-    profileStore.activeProfile &&
-    (to.name === 'welcome' || to.name === 'onboarding')
-  ) {
+  if (profileStore.activeProfile && (to.name === 'welcome' || to.name === 'onboarding')) {
     return { name: 'home' }
   }
 

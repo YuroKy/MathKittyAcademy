@@ -40,9 +40,7 @@ const masteredTopics = computed(
 )
 const accuracy = computed(() =>
   learningStats.value.totalAttempts
-    ? Math.round(
-        (learningStats.value.correctAttempts / learningStats.value.totalAttempts) * 100,
-      )
+    ? Math.round((learningStats.value.correctAttempts / learningStats.value.totalAttempts) * 100)
     : 0,
 )
 const questProgress = computed(() => Math.min(masteredTopics.value, 5))
@@ -52,17 +50,13 @@ onMounted(async () => {
   if (!profileId) return
 
   try {
-    ;[
-      topicProgress.value,
-      gamification.value,
-      dueReviews.value,
-      learningStats.value,
-    ] = await Promise.all([
-      learningRepository.listTopicProgress(profileId),
-      learningRepository.getGamification(profileId),
-      learningRepository.countDueReviews(profileId),
-      learningRepository.getLearningStats(profileId),
-    ])
+    ;[topicProgress.value, gamification.value, dueReviews.value, learningStats.value] =
+      await Promise.all([
+        learningRepository.listTopicProgress(profileId),
+        learningRepository.getGamification(profileId),
+        learningRepository.countDueReviews(profileId),
+        learningRepository.getLearningStats(profileId),
+      ])
   } finally {
     loading.value = false
   }
@@ -83,10 +77,7 @@ onMounted(async () => {
           <div class="academy-hero__copy">
             <span class="eyebrow">Магічний кабінет математики</span>
             <h1>Привіт, {{ profileStore.activeProfile?.name }}!</h1>
-            <p>
-              Один невеликий крок — і сьогоднішня сторінка щоденника засяє новою
-              зіркою.
-            </p>
+            <p>Один невеликий крок — і сьогоднішня сторінка щоденника засяє новою зіркою.</p>
 
             <div class="hero-level">
               <span class="level-crest">
@@ -140,11 +131,7 @@ onMounted(async () => {
               </div>
             </div>
             <p>Засвой 5 тем, щоб відкрити першу сторінку альбому досягнень.</p>
-            <ProgressBar
-              :value="questProgress"
-              :max="5"
-              :label="`${questProgress} / 5 тем`"
-            />
+            <ProgressBar :value="questProgress" :max="5" :label="`${questProgress} / 5 тем`" />
             <div class="quest-reward">
               <span><AppIcon name="star" /> +150 XP</span>
               <span><AppIcon name="gem" /> рідкісна наліпка</span>

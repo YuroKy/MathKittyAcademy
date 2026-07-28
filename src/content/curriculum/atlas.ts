@@ -1,3 +1,5 @@
+import { curriculumTopicIdByAtlasTitle } from './topics'
+
 export interface AtlasTopic {
   id: string
   order: number
@@ -26,7 +28,6 @@ export interface AtlasLocation {
 
 interface LocationSeed extends Omit<AtlasLocation, 'topics'> {
   topicTitles: string[]
-  liveTopics?: Record<string, string>
 }
 
 const locationSeeds: LocationSeed[] = [
@@ -78,7 +79,6 @@ const locationSeeds: LocationSeed[] = [
       'Усне додавання й віднімання до 20',
       'Прості текстові задачі',
     ],
-    liveTopics: { 'Числа до 20': 'natural-numbers' },
   },
   {
     id: 'place-value-city',
@@ -129,7 +129,6 @@ const locationSeeds: LocationSeed[] = [
       'Порядок дій і дужки',
       'Складені текстові задачі',
     ],
-    liveTopics: { 'Порядок дій і дужки': 'order-of-operations' },
   },
   {
     id: 'measure-meadow',
@@ -157,8 +156,10 @@ const locationSeeds: LocationSeed[] = [
       'Площа прямокутника',
       'Площа складених фігур',
       'Симетрія',
+      'Координатний промінь',
       'Координатна сітка',
       'Об’єм прямокутного паралелепіпеда',
+      'Циліндр, конус, куля і сфера',
     ],
   },
   {
@@ -180,7 +181,6 @@ const locationSeeds: LocationSeed[] = [
       'Найбільший спільний дільник',
       'Найменше спільне кратне',
     ],
-    liveTopics: { 'Ознаки подільності': 'divisibility' },
   },
   {
     id: 'fraction-archipelago',
@@ -215,14 +215,6 @@ const locationSeeds: LocationSeed[] = [
       'Число за значенням його дробу',
       'Текстові задачі з дробами',
     ],
-    liveTopics: {
-      'Дріб як частина цілого': 'fraction-meaning',
-      'Рівні дроби': 'equivalent-fractions',
-      'Порівняння дробів': 'comparing-fractions',
-      'Додавання і віднімання з однаковими знаменниками': 'fraction-addition-equal',
-      'Додавання і віднімання з різними знаменниками': 'fraction-addition-different',
-      'Множення дробів': 'fraction-multiplication',
-    },
   },
   {
     id: 'percent-skyport',
@@ -257,12 +249,6 @@ const locationSeeds: LocationSeed[] = [
       'Відсоткова зміна',
       'Знижки, націнки, податки й прості відсотки',
     ],
-    liveTopics: {
-      'Розряди десяткових дробів': 'decimals',
-      'Перетворення звичайних і десяткових дробів': 'fraction-decimal-conversion',
-      Пропорція: 'ratios-proportions',
-      'Поняття відсотка': 'percentages',
-    },
   },
   {
     id: 'signed-canyon',
@@ -288,7 +274,6 @@ const locationSeeds: LocationSeed[] = [
       'Степінь із натуральним показником',
       'Властивості арифметичних дій',
     ],
-    liveTopics: { 'Від’ємні числа': 'negative-numbers' },
   },
   {
     id: 'algebra-lab',
@@ -319,7 +304,6 @@ const locationSeeds: LocationSeed[] = [
       'Числові проміжки',
       'Найпростіші рівняння й нерівності з модулем',
     ],
-    liveTopics: { 'Багатокрокові лінійні рівняння': 'linear-equations' },
   },
   {
     id: 'function-railway',
@@ -347,6 +331,7 @@ const locationSeeds: LocationSeed[] = [
       'Метод додавання',
       'Системи лінійних нерівностей',
       'Кусково задані функції',
+      'Математичне моделювання',
     ],
   },
   {
@@ -369,6 +354,7 @@ const locationSeeds: LocationSeed[] = [
       'Ознаки рівності трикутників',
       'Медіана, бісектриса і висота',
       'Властивості рівнобедреного трикутника',
+      'Прямокутний трикутник та його властивості',
       'Геометричні побудови',
       'Чотирикутники та їхні властивості',
       'Теорема Піфагора',
@@ -388,6 +374,7 @@ const locationSeeds: LocationSeed[] = [
     symbol: 'a²',
     palette: { light: '#ffeadf', mid: '#efb99e', dark: '#c96852', ink: '#74392f' },
     topicTitles: [
+      'Властивості степеня з натуральним показником',
       'Степінь із цілим показником',
       'Стандартний вигляд числа',
       'Одночлени й многочлени',
@@ -445,8 +432,10 @@ const locationSeeds: LocationSeed[] = [
       'Ознаки подібності трикутників',
       'Пропорційні відрізки',
       'Середня лінія трикутника і трапеції',
+      'Метричні співвідношення у прямокутному трикутнику',
       'Площі трикутників і чотирикутників',
       'Правильні многокутники',
+      'Довжина кола, площа круга і сектора',
       'Хорди, дуги й центральні кути',
       'Вписані кути',
       'Дотична до кола',
@@ -525,11 +514,15 @@ const locationSeeds: LocationSeed[] = [
     symbol: '⚄',
     palette: { light: '#fff0ee', mid: '#f4bdc5', dark: '#cd687b', ink: '#793849' },
     topicTitles: [
+      'Таблиці та прості діаграми',
+      'Стовпчасті та кругові діаграми',
+      'Середнє арифметичне',
       'Таблиці, діаграми та графіки даних',
       'Середнє, медіана, мода й розмах',
       'Квартилі та діаграма розмаху',
       'Генеральна сукупність і вибірка',
       'Правило суми і правило добутку',
+      'Найпростіші комбінаторні задачі',
       'Перестановки',
       'Розміщення',
       'Комбінації',
@@ -560,6 +553,7 @@ const locationSeeds: LocationSeed[] = [
       'Координати й операції з векторами',
       'Скалярний добуток',
       'Рівняння прямої та кола',
+      'Геометричні перетворення',
       'Координати й вектори у просторі',
       'Аксіоми стереометрії',
       'Прямі та площини у просторі',
@@ -641,7 +635,7 @@ const locationSeeds: LocationSeed[] = [
 let nextTopicOrder = 1
 
 export const atlasLocations: AtlasLocation[] = locationSeeds.map(
-  ({ topicTitles, liveTopics = {}, ...location }) => ({
+  ({ topicTitles, ...location }) => ({
     ...location,
     topics: topicTitles.map((title, index) => {
       const order = nextTopicOrder
@@ -650,7 +644,7 @@ export const atlasLocations: AtlasLocation[] = locationSeeds.map(
         id: `${location.id}-${index + 1}`,
         order,
         title,
-        liveTopicId: liveTopics[title],
+        liveTopicId: curriculumTopicIdByAtlasTitle[title],
         isBoss: index === topicTitles.length - 1,
       }
     }),

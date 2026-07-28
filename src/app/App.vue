@@ -24,9 +24,7 @@ onMounted(() => profileStore.initialize())
 watch(
   [() => profileStore.activeProfile?.id, () => route.fullPath],
   async ([profileId]) => {
-    gamification.value = profileId
-      ? await learningRepository.getGamification(profileId)
-      : undefined
+    gamification.value = profileId ? await learningRepository.getGamification(profileId) : undefined
   },
   { immediate: true },
 )

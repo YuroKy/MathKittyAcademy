@@ -12,7 +12,8 @@ import { useProfileStore } from '@/stores/profile'
 import type { GamificationState, TopicProgress } from '@/types/domain'
 
 type CollectionCategory = 'all' | 'stickers' | 'badges' | 'accessories' | 'rare'
-type IconName = 'book' | 'crown' | 'gem' | 'paw' | 'ribbon' | 'sparkles' | 'star' | 'target' | 'trophy'
+type IconName =
+  'book' | 'crown' | 'gem' | 'paw' | 'ribbon' | 'sparkles' | 'star' | 'target' | 'trophy'
 
 interface CollectionItem {
   id: string
@@ -67,8 +68,7 @@ const catalog = computed<CollectionItem[]>(() => [
     description: 'Перший зошит Мурки для охайних кроків і сміливих гіпотез.',
     requirement: 'Входить до стартового набору учениці.',
     tone: 'pink',
-    unlocked: () =>
-      gamification.value?.unlockedCosmeticIds.includes('desk-pink-notebook') ?? true,
+    unlocked: () => gamification.value?.unlockedCosmeticIds.includes('desk-pink-notebook') ?? true,
   },
   {
     id: 'first-lesson-completed',
@@ -186,10 +186,7 @@ onMounted(async () => {
       <div>
         <span class="eyebrow">Альбом нагород Мурки</span>
         <h1>Моя колекція</h1>
-        <p>
-          Кожна річ тут нагадує про справжній навчальний крок — жодних випадкових
-          подарунків.
-        </p>
+        <p>Кожна річ тут нагадує про справжній навчальний крок — жодних випадкових подарунків.</p>
       </div>
       <div class="collection-counter">
         <AppIcon name="star" />
@@ -225,7 +222,11 @@ onMounted(async () => {
           v-for="item in filteredItems"
           :key="item.id"
           type="button"
-          :class="['collection-item', `collection-item--${item.tone}`, { locked: !item.unlocked() }]"
+          :class="[
+            'collection-item',
+            `collection-item--${item.tone}`,
+            { locked: !item.unlocked() },
+          ]"
           @click="selectedItem = item"
         >
           <span v-if="item.unlocked()" class="collection-item__art">
@@ -239,10 +240,7 @@ onMounted(async () => {
             <small>{{ item.unlocked() ? item.rarity : 'Ще не відкрито' }}</small>
             <strong>{{ item.unlocked() ? item.title : 'Таємна нагорода' }}</strong>
           </span>
-          <span
-            v-if="item.id === 'first-lesson-completed' && item.unlocked()"
-            class="new-ribbon"
-          >
+          <span v-if="item.id === 'first-lesson-completed' && item.unlocked()" class="new-ribbon">
             Нове
           </span>
         </button>
@@ -255,8 +253,17 @@ onMounted(async () => {
       />
     </div>
 
-    <div v-if="selectedItem" class="collection-modal-backdrop" @click.self="selectedItem = undefined">
-      <aside class="collection-modal" role="dialog" aria-modal="true" :aria-labelledby="`item-${selectedItem.id}`">
+    <div
+      v-if="selectedItem"
+      class="collection-modal-backdrop"
+      @click.self="selectedItem = undefined"
+    >
+      <aside
+        class="collection-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="`item-${selectedItem.id}`"
+      >
         <button
           class="icon-button collection-modal__close"
           type="button"
@@ -282,7 +289,9 @@ onMounted(async () => {
         <div class="unlock-condition">
           <AppIcon :name="selectedItem.unlocked() ? 'check' : 'lock'" />
           <div>
-            <strong>{{ selectedItem.unlocked() ? 'Нагороду відкрито' : 'Умова розблокування' }}</strong>
+            <strong>{{
+              selectedItem.unlocked() ? 'Нагороду відкрито' : 'Умова розблокування'
+            }}</strong>
             <span>{{ selectedItem.requirement }}</span>
           </div>
         </div>
