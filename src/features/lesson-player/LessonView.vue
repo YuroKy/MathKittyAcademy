@@ -4,10 +4,20 @@ import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
+import FractionBar from '@/components/learning/FractionBar.vue'
+import GroupingBoard from '@/components/learning/GroupingBoard.vue'
+import GuidedStepBuilder from '@/components/learning/GuidedStepBuilder.vue'
+import PredictionChoice from '@/components/learning/PredictionChoice.vue'
+import TapReveal from '@/components/learning/TapReveal.vue'
 import MathExpression from '@/components/math/MathExpression.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { findTopic } from '@/content/curriculum/topics'
-import { buildNaturalNumbersExerciseSet } from '@/domain/exercises/generator'
+import { findPilotLesson } from '@/content/lessons/pilotLessons'
+import { findTopicPreview } from '@/content/lessons/topicPreviews'
+import {
+  buildFractionMeaningExerciseSet,
+  buildNaturalNumbersExerciseSet,
+} from '@/domain/exercises/generator'
 import { areEquivalentAnswers } from '@/domain/exercises/rational'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
@@ -15,26 +25,40 @@ import type { ExerciseInstance, LearningSession } from '@/types/domain'
 
 type LessonStage =
   | 'introduction'
-  | 'explanation'
-  | 'visual-example'
+  | 'prediction'
+  | 'explore'
   | 'guided-example'
   | 'practice'
   | 'summary'
 
-const stageOrder: LessonStage[] = [
+interface InteractionState extends Record<string, unknown> {
+  predictionIndex?: number
+  groupCounts: number[]
+  fractionParts: number[]
+  guidedStepCount: number
+  revealIndexes: number[]
+}
+
+const fullStageOrder: LessonStage[] = [
   'introduction',
-  'explanation',
-  'visual-example',
+  'prediction',
+  'explore',
   'guided-example',
   'practice',
   'summary',
 ]
+const previewStageOrder: LessonStage[] = ['introduction', 'prediction', 'explore', 'summary']
 
 const route = useRoute()
 const router = useRouter()
 const profileStore = useProfileStore()
 const topic = computed(() => findTopic(String(route.params.topicId)))
-const supported = computed(() => topic.value?.id === 'natural-numbers')
+const preview = computed(() => findTopicPreview(String(route.params.topicId)))
+const pilotLesson = computed(() => findPilotLesson(String(route.params.topicId)))
+const requestedPreview = computed(() => route.query.mode === 'preview')
+const previewOnly = computed(() => requestedPreview.value || !pilotLesson.value)
+const stageOrder = computed(() => (previewOnly.value ? previewStageOrder : fullStageOrder))
+
 const session = ref<LearningSession>()
 const stage = ref<LessonStage>('introduction')
 const exercises = ref<ExerciseInstance[]>([])
@@ -45,74 +69,193 @@ const feedback = ref<'correct' | 'incorrect' | 'revealed' | ''>('')
 const saving = ref(false)
 const loading = ref(true)
 const errorMessage = ref('')
-const lessonCompleted = ref(false)
+
+const predictionIndex = ref<number>()
+const groupCounts = ref([0, 0, 0])
+const fractionParts = ref<number[]>([])
+const guidedStepCount = ref(0)
+const revealIndexes = ref<number[]>([])
 
 const currentExercise = computed(() => exercises.value[exerciseIndex.value])
-const stageIndex = computed(() => stageOrder.indexOf(stage.value))
+const stageIndex = computed(() => Math.max(0, stageOrder.value.indexOf(stage.value)))
 const overallProgress = computed(() => {
   if (stage.value === 'practice') {
     const practiceSlice = exerciseIndex.value / Math.max(exercises.value.length, 1)
-    return ((stageIndex.value + practiceSlice) / (stageOrder.length - 1)) * 100
+    return ((stageIndex.value + practiceSlice) / (stageOrder.value.length - 1)) * 100
   }
-  return (stageIndex.value / (stageOrder.length - 1)) * 100
+  return (stageIndex.value / Math.max(stageOrder.value.length - 1, 1)) * 100
 })
 const visibleHints = computed(() => currentExercise.value?.hints.slice(0, hintLevel.value) ?? [])
+const interactionComplete = computed(() => {
+  if (!pilotLesson.value) return revealIndexes.value.length === 3
+  return pilotLesson.value.interactionKind === 'groupingBoard'
+    ? groupCounts.value.reduce((sum, count) => sum + count, 0) === 12
+    : fractionParts.value.length === 3
+})
+const canContinue = computed(() => {
+  if (stage.value === 'prediction') return predictionIndex.value !== undefined
+  if (stage.value === 'explore') return interactionComplete.value
+  if (stage.value === 'guided-example') {
+    return guidedStepCount.value === (pilotLesson.value?.guidedSteps.length ?? 0)
+  }
+  return stage.value !== 'practice'
+})
+const genericRevealItems = computed(() => [
+  {
+    label: 'Головна ідея',
+    content: preview.value?.hook ?? 'Подивися на математичну ідею з іншого боку.',
+  },
+  {
+    label: 'Як перевірити',
+    content: preview.value?.explanation ?? 'Перевір результат конкретним прикладом.',
+  },
+  {
+    label: 'Твій виклик',
+    content: preview.value?.challengeLabel ?? 'Спробуй коротку вправу.',
+  },
+])
 
-onMounted(async () => {
-  const profileId = profileStore.activeProfile?.id
-  if (!profileId || !topic.value || !supported.value) {
+onMounted(initializeLesson)
+
+async function initializeLesson(): Promise<void> {
+  if (!topic.value || !preview.value) {
     loading.value = false
     return
   }
 
+  if (!previewOnly.value) {
+    await initializeFullSession()
+  }
+  loading.value = false
+}
+
+async function initializeFullSession(reset = false): Promise<void> {
+  const profileId = profileStore.activeProfile?.id
+  if (!profileId || !topic.value || !pilotLesson.value) return
+
   try {
     session.value = await learningRepository.startLesson(profileId, topic.value.id)
-    exercises.value = buildNaturalNumbersExerciseSet(session.value.id)
-    stage.value = isLessonStage(session.value.currentStage)
-      ? session.value.currentStage
-      : 'introduction'
-    exerciseIndex.value = Math.min(
-      session.value.currentExerciseIndex ?? 0,
-      exercises.value.length - 1,
-    )
-    const seeds = exercises.value.map((exercise) => exercise.seed)
-    if (session.value.exerciseSeeds.length === 0) {
-      await learningRepository.saveLessonPosition(
-        session.value.id,
-        stage.value,
-        exerciseIndex.value,
-        seeds,
+    exercises.value =
+      topic.value.id === 'fraction-meaning'
+        ? buildFractionMeaningExerciseSet(session.value.id)
+        : buildNaturalNumbersExerciseSet(session.value.id)
+
+    if (!reset) {
+      stage.value = isLessonStage(session.value.currentStage)
+        ? session.value.currentStage
+        : 'introduction'
+      exerciseIndex.value = Math.min(
+        session.value.currentExerciseIndex ?? 0,
+        exercises.value.length - 1,
       )
-      session.value.exerciseSeeds = seeds
+      restoreInteractionState(session.value.interactionState)
     }
+
+    const seeds = exercises.value.map((exercise) => exercise.seed)
+    await savePosition(stage.value, exerciseIndex.value, seeds)
   } catch (error) {
     console.error('Failed to start lesson', error)
     errorMessage.value =
-      'Не вдалося відкрити урок. Твій завершений прогрес у безпеці — спробуй ще раз.'
-  } finally {
-    loading.value = false
+      'Не вдалося відкрити урок. Завершений прогрес у безпеці — спробуй ще раз.'
   }
-})
-
-function isLessonStage(value: string | undefined): value is LessonStage {
-  return value !== undefined && stageOrder.includes(value as LessonStage)
 }
 
-async function savePosition(nextStage: LessonStage, nextIndex = exerciseIndex.value): Promise<void> {
+function restoreInteractionState(saved: Record<string, unknown> | undefined): void {
+  if (!saved) return
+  if (typeof saved.predictionIndex === 'number') predictionIndex.value = saved.predictionIndex
+  if (isNumberArray(saved.groupCounts)) groupCounts.value = saved.groupCounts
+  if (isNumberArray(saved.fractionParts)) fractionParts.value = saved.fractionParts
+  if (typeof saved.guidedStepCount === 'number') guidedStepCount.value = saved.guidedStepCount
+  if (isNumberArray(saved.revealIndexes)) revealIndexes.value = saved.revealIndexes
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'number')
+}
+
+function isLessonStage(value: string | undefined): value is LessonStage {
+  return value !== undefined && fullStageOrder.includes(value as LessonStage)
+}
+
+function serializeInteractionState(): InteractionState {
+  return {
+    ...(predictionIndex.value !== undefined
+      ? { predictionIndex: predictionIndex.value }
+      : {}),
+    groupCounts: [...groupCounts.value],
+    fractionParts: [...fractionParts.value],
+    guidedStepCount: guidedStepCount.value,
+    revealIndexes: [...revealIndexes.value],
+  }
+}
+
+async function savePosition(
+  nextStage = stage.value,
+  nextIndex = exerciseIndex.value,
+  seeds = exercises.value.map((exercise) => exercise.seed),
+): Promise<void> {
   if (!session.value) return
   await learningRepository.saveLessonPosition(
     session.value.id,
     nextStage,
     nextIndex,
-    exercises.value.map((exercise) => exercise.seed),
+    seeds,
+    serializeInteractionState(),
   )
 }
 
 async function continueLesson(): Promise<void> {
-  const next = stageOrder[stageIndex.value + 1]
-  if (!next || next === 'summary') return
+  if (!canContinue.value) return
+  const next = stageOrder.value[stageIndex.value + 1]
+  if (!next) return
   stage.value = next
   await savePosition(next)
+}
+
+async function updatePrediction(index: number): Promise<void> {
+  predictionIndex.value = index
+  await savePosition()
+}
+
+async function updateGroupCounts(value: number[]): Promise<void> {
+  groupCounts.value = value
+  await savePosition()
+}
+
+async function updateFractionParts(value: number[]): Promise<void> {
+  fractionParts.value = value
+  await savePosition()
+}
+
+async function updateGuidedSteps(value: number): Promise<void> {
+  guidedStepCount.value = value
+  await savePosition()
+}
+
+function updateRevealIndexes(value: number[]): void {
+  revealIndexes.value = value
+}
+
+async function startFullLesson(): Promise<void> {
+  if (!pilotLesson.value) return
+  await router.replace({ path: route.path })
+  resetInteractiveState()
+  stage.value = 'introduction'
+  loading.value = true
+  await initializeFullSession(true)
+  loading.value = false
+}
+
+function resetInteractiveState(): void {
+  predictionIndex.value = undefined
+  groupCounts.value = [0, 0, 0]
+  fractionParts.value = []
+  guidedStepCount.value = 0
+  revealIndexes.value = []
+  exerciseIndex.value = 0
+  answer.value = ''
+  feedback.value = ''
+  hintLevel.value = 0
 }
 
 async function submitAnswer(): Promise<void> {
@@ -194,13 +337,12 @@ async function nextExercise(): Promise<void> {
   saving.value = true
   try {
     await learningRepository.completeLesson(session.value)
-    lessonCompleted.value = true
     stage.value = 'summary'
     session.value.status = 'completed'
     session.value.earnedXp = 40
   } catch (error) {
     console.error('Failed to complete lesson', error)
-    errorMessage.value = 'Урок завершено, але підсумок не зберігся. Спробуй натиснути ще раз.'
+    errorMessage.value = 'Урок завершено, але підсумок не зберігся. Спробуй ще раз.'
   } finally {
     saving.value = false
   }
@@ -210,116 +352,100 @@ async function nextExercise(): Promise<void> {
 <template>
   <section class="lesson-page">
     <header class="lesson-header">
-      <button class="icon-button" type="button" aria-label="Вийти з уроку" @click="router.push('/home')">
+      <button class="icon-button" type="button" aria-label="Вийти з уроку" @click="router.push('/map')">
         ×
       </button>
       <div>
-        <span>{{ topic?.title ?? 'Урок' }}</span>
+        <span>
+          {{ topic?.title ?? 'Урок' }}
+          <small v-if="previewOnly">· коротке прев’ю</small>
+        </span>
         <ProgressBar :value="overallProgress" label="Прогрес уроку" />
       </div>
-      <span class="lesson-time">≈ {{ topic?.estimatedMinutes ?? 10 }} хв</span>
+      <span class="lesson-time">≈ {{ previewOnly ? 3 : topic?.estimatedMinutes ?? 10 }} хв</span>
     </header>
 
-    <div v-if="loading" class="loading-state" role="status">Готуємо зошит і вправи…</div>
+    <div v-if="loading" class="loading-state" role="status">Мурка готує інтерактиви…</div>
 
-    <div v-else-if="errorMessage && !session" class="lesson-error" role="alert">
+    <div v-else-if="errorMessage && !session && !previewOnly" class="lesson-error" role="alert">
       <MascotCard mood="mistake" :message="errorMessage" />
-      <BaseButton @click="router.push('/home')">Повернутися на головну</BaseButton>
+      <BaseButton @click="router.push('/map')">Повернутися на карту</BaseButton>
     </div>
 
-    <div v-else-if="!topic" class="lesson-error">
+    <div v-else-if="!topic || !preview" class="lesson-error">
       <MascotCard mood="thinking" message="Не знайшла цю тему на карті академії." />
       <BaseButton @click="router.push('/map')">Відкрити карту</BaseButton>
     </div>
 
-    <div v-else-if="!supported" class="lesson-error">
-      <MascotCard
-        mood="thinking"
-        message="Кімнату вже видно на карті, але її повний урок ще готується."
-      />
-      <div class="question-block question-block--center">
-        <span class="eyebrow">Наступний етап розробки</span>
-        <h1>{{ topic.title }}</h1>
-        <p>
-          Метадані й передумови цієї теми вже працюють. Перший повністю інтерактивний урок
-          зараз доступний у кімнаті натуральних чисел.
-        </p>
-      </div>
-      <BaseButton @click="router.push('/learn/natural-numbers')">
-        Відкрити готовий урок
-      </BaseButton>
-    </div>
-
-    <article v-else class="lesson-card">
+    <article v-else class="lesson-card lesson-card--interactive">
       <template v-if="stage === 'introduction'">
         <MascotCard
-          mood="encouraging"
-          message="Сьогодні пригадаємо чотири звичні дії. Це опора для всього, що буде далі."
+          mood="explaining"
+          :message="pilotLesson?.mascotMessage ?? 'За три хвилини торкнемося головної ідеї цієї теми.'"
         />
         <div class="lesson-copy">
-          <span class="eyebrow">Крок 1 · Знайомство</span>
-          <h1>Числа — це наші будівельні кубики</h1>
-          <p>
-            За одне коротке заняття потренуємо додавання, віднімання та множення.
-            Поспішати не треба: швидкість тут не впливає на прогрес.
-          </p>
-        </div>
-      </template>
-
-      <template v-else-if="stage === 'explanation'">
-        <div class="lesson-copy">
-          <span class="eyebrow">Крок 2 · Ідея</span>
-          <h1>Кожна дія відповідає на своє запитання</h1>
-          <div class="operation-list">
-            <div><span>+</span><p><strong>Додати</strong> — скільки буде разом?</p></div>
-            <div><span>−</span><p><strong>Відняти</strong> — скільки залишиться?</p></div>
-            <div><span>×</span><p><strong>Помножити</strong> — скільки в однакових групах?</p></div>
-            <div><span>÷</span><p><strong>Поділити</strong> — скільки в кожній рівній групі?</p></div>
+          <span class="eyebrow">{{ previewOnly ? 'Вільна спроба' : 'Крок 1 · Старт' }}</span>
+          <h1>{{ pilotLesson?.introTitle ?? topic.title }}</h1>
+          <p>{{ pilotLesson?.introText ?? preview.hook }}</p>
+          <div class="lesson-promise">
+            <span aria-hidden="true">✦</span>
+            <p>
+              Тут не буде довгого вступу: спочатку твоя гіпотеза, потім — взаємодія.
+            </p>
           </div>
         </div>
       </template>
 
-      <template v-else-if="stage === 'visual-example'">
-        <div class="lesson-copy">
-          <span class="eyebrow">Крок 3 · Побачимо</span>
-          <h1>Три групи по чотири</h1>
-          <div class="dot-groups" aria-label="Три групи, у кожній по чотири крапки">
-            <div v-for="group in 3" :key="group">
-              <span v-for="dot in 4" :key="dot" />
-            </div>
-          </div>
-          <MathExpression expression="3 \times 4 = 12" display label="Три помножити на чотири дорівнює дванадцять" />
-          <p>
-            Множення — короткий запис однакового додавання:
-            <strong>4 + 4 + 4 = 12</strong>.
-          </p>
-        </div>
+      <PredictionChoice
+        v-else-if="stage === 'prediction'"
+        :question="preview.question"
+        :choices="preview.choices"
+        :correct-choice-index="preview.correctChoiceIndex"
+        :selected-index="predictionIndex"
+        @update:selected-index="updatePrediction"
+      >
+        <template #explanation>{{ preview.explanation }}</template>
+      </PredictionChoice>
+
+      <template v-else-if="stage === 'explore'">
+        <GroupingBoard
+          v-if="pilotLesson?.interactionKind === 'groupingBoard'"
+          :model-value="groupCounts"
+          @update:model-value="updateGroupCounts"
+        />
+        <FractionBar
+          v-else-if="pilotLesson?.interactionKind === 'fractionBar'"
+          :model-value="fractionParts"
+          @update:model-value="updateFractionParts"
+        />
+        <TapReveal
+          v-else
+          :items="genericRevealItems"
+          :model-value="revealIndexes"
+          @update:model-value="updateRevealIndexes"
+        />
       </template>
 
-      <template v-else-if="stage === 'guided-example'">
-        <div class="lesson-copy">
-          <span class="eyebrow">Крок 4 · Разом</span>
-          <h1>Знайдемо 27 + 16</h1>
-          <ol class="solution-steps">
-            <li><span>1</span><p>Розкладемо 16 на <strong>10 + 6</strong>.</p></li>
-            <li><span>2</span><p>Додамо десяток: <strong>27 + 10 = 37</strong>.</p></li>
-            <li><span>3</span><p>Додамо решту: <strong>37 + 6 = 43</strong>.</p></li>
-          </ol>
-          <div class="guided-result">
-            <span aria-hidden="true">✓</span>
-            <MathExpression expression="27 + 16 = 43" label="Двадцять сім плюс шістнадцять дорівнює сорок три" />
-          </div>
-        </div>
-      </template>
+      <GuidedStepBuilder
+        v-else-if="stage === 'guided-example' && pilotLesson"
+        :title="pilotLesson.guidedTitle"
+        :steps="pilotLesson.guidedSteps"
+        :revealed-count="guidedStepCount"
+        @update:revealed-count="updateGuidedSteps"
+      />
 
       <template v-else-if="stage === 'practice' && currentExercise">
         <div class="exercise-shell">
           <div class="exercise-meta">
             <span class="eyebrow">Твоя спроба · {{ exerciseIndex + 1 }}/{{ exercises.length }}</span>
-            <span class="difficulty-pill">основа</span>
+            <span class="difficulty-pill">інтерактивна основа</span>
           </div>
-          <h1>Обчисли вираз</h1>
+          <h1>{{ currentExercise.topicId === 'fraction-meaning' ? 'Запиши дріб' : 'Обчисли вираз' }}</h1>
+          <p v-if="currentExercise.topicId === 'fraction-meaning'" class="exercise-question">
+            {{ currentExercise.prompt }}
+          </p>
           <MathExpression
+            v-else
             :expression="currentExercise.prompt.replace('?', '')"
             display
             :label="currentExercise.prompt"
@@ -330,9 +456,9 @@ async function nextExercise(): Promise<void> {
               <span>Твоя відповідь</span>
               <input
                 v-model="answer"
-                inputmode="numeric"
+                :inputmode="currentExercise.kind === 'fractionInput' ? 'text' : 'numeric'"
                 autocomplete="off"
-                placeholder="Введи число"
+                :placeholder="currentExercise.kind === 'fractionInput' ? 'Наприклад, 3/6' : 'Введи число'"
                 :aria-invalid="feedback === 'incorrect'"
                 :disabled="feedback === 'correct' || feedback === 'revealed'"
                 autofocus
@@ -348,10 +474,7 @@ async function nextExercise(): Promise<void> {
           </form>
 
           <div class="exercise-tools">
-            <button type="button" @click="showHint">
-              <span aria-hidden="true">✦</span>
-              Підказка
-            </button>
+            <button type="button" @click="showHint"><span aria-hidden="true">✦</span> Підказка</button>
             <button type="button" @click="revealAnswer">Не знаю</button>
           </div>
 
@@ -363,25 +486,19 @@ async function nextExercise(): Promise<void> {
           <div class="feedback-region" aria-live="polite">
             <div v-if="feedback === 'correct'" class="feedback feedback--correct">
               <span aria-hidden="true">✓</span>
-              <div>
-                <strong>Так, відповідь підходить!</strong>
-                <p>{{ currentExercise.solutionSteps[0] }}</p>
-              </div>
+              <div><strong>Так, це працює!</strong><p>{{ currentExercise.solutionSteps[0] }}</p></div>
             </div>
             <div v-else-if="feedback === 'incorrect'" class="feedback feedback--incorrect">
               <span aria-hidden="true">↻</span>
               <div>
-                <strong>Розплутаємо цей крок разом</strong>
-                <p>
-                  Схоже, обчислення десь звернуло не туди. Відкрий підказку або зміни
-                  відповідь і перевір ще раз.
-                </p>
+                <strong>Розплутаємо цей крок</strong>
+                <p>Відкрий підказку або зміни відповідь — цю вправу можна виправити.</p>
               </div>
             </div>
             <div v-else-if="feedback === 'revealed'" class="feedback feedback--revealed">
               <span aria-hidden="true">✦</span>
               <div>
-                <strong>Ось як це розв’язати</strong>
+                <strong>Ось повне рішення</strong>
                 <p v-for="solutionStep in currentExercise.solutionSteps" :key="solutionStep">
                   {{ solutionStep }}
                 </p>
@@ -394,43 +511,62 @@ async function nextExercise(): Promise<void> {
             :disabled="saving"
             @click="nextExercise"
           >
-            {{ exerciseIndex === exercises.length - 1 ? 'Завершити заняття' : 'Наступне завдання' }}
+            {{ exerciseIndex === exercises.length - 1 ? 'Завершити заняття' : 'Наступна вправа' }}
           </BaseButton>
         </div>
       </template>
 
       <template v-else-if="stage === 'summary'">
         <MascotCard
-          mood="celebrating"
-          message="Готово! Ти не просто відповіла — ти створила основу для наступної теми."
+          :mood="previewOnly ? 'encouraging' : 'celebrating'"
+          :message="
+            previewOnly
+              ? 'Ти вже торкнулася цієї теми. Тепер можна продовжити або дослідити іншу.'
+              : 'Готово! Ти сама побудувала ідею, склала кроки й перевірила її вправами.'
+          "
         />
         <div class="lesson-copy lesson-copy--center">
-          <span class="eyebrow">Заняття завершено</span>
-          <h1>Ще один надійний крок</h1>
+          <span class="eyebrow">{{ previewOnly ? 'Прев’ю завершено' : 'Заняття завершено' }}</span>
+          <h1>{{ previewOnly ? 'Ідею спробовано' : 'Ще один надійний крок' }}</h1>
           <p>
-            Тепер у карті відкрилися наступні кімнати. Вправи з цього уроку повернуться
-            у повторенні завтра.
+            {{
+              previewOnly
+                ? preview.explanation
+                : pilotLesson?.summaryText
+            }}
           </p>
-          <div class="reward-row">
+          <div v-if="!previewOnly" class="reward-row">
             <span><strong>+40</strong> XP</span>
-            <span><strong>1</strong> новий крок</span>
-            <span aria-label="Досягнення: перший урок"><strong>★</strong> відзнака</span>
+            <span><strong>3</strong> взаємодії</span>
+            <span><strong>↻</strong> повторення</span>
+          </div>
+          <div v-else-if="!pilotLesson" class="preview-coming-soon">
+            Повний інтерактивний урок для цієї теми буде наступним контентним оновленням.
+            Прев’ю вже доступне без жодних передумов.
           </div>
         </div>
       </template>
 
       <p v-if="errorMessage && session" class="inline-error" role="alert">{{ errorMessage }}</p>
 
-      <footer v-if="stage !== 'practice'" class="lesson-actions">
-        <BaseButton
-          v-if="stage !== 'summary'"
-          @click="continueLesson"
-        >
-          Продовжити
-          <span aria-hidden="true">→</span>
-        </BaseButton>
-        <BaseButton v-else @click="router.push('/home')">
-          Повернутися на головну
+      <footer v-if="stage !== 'practice'" class="lesson-actions lesson-actions--stackable">
+        <template v-if="stage === 'summary'">
+          <BaseButton v-if="previewOnly && pilotLesson" @click="startFullLesson">
+            Продовжити повний урок
+          </BaseButton>
+          <BaseButton variant="secondary" @click="router.push('/map')">
+            Обрати іншу тему
+          </BaseButton>
+        </template>
+        <BaseButton v-else :disabled="!canContinue" @click="continueLesson">
+          {{
+            !canContinue && stage === 'prediction'
+              ? 'Спочатку обери відповідь'
+              : !canContinue
+                ? 'Заверши взаємодію'
+                : 'Продовжити'
+          }}
+          <span v-if="canContinue" aria-hidden="true">→</span>
         </BaseButton>
       </footer>
     </article>

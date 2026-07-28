@@ -3,9 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { curriculumTopics } from '@/content/curriculum/topics'
+import { findPilotLesson } from '@/content/lessons/pilotLessons'
 import {
   deriveTopicStatus,
   missingPrerequisites,
+  recommendNextTopic,
 } from '@/domain/learning/prerequisites'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
@@ -14,20 +16,27 @@ import type { CurriculumTopic, TopicProgress } from '@/types/domain'
 const router = useRouter()
 const profileStore = useProfileStore()
 const progress = ref<TopicProgress[]>([])
-const selectedLockedTopic = ref<CurriculumTopic>()
+const selectedTopic = ref<CurriculumTopic>()
 const progressMap = computed(() => new Map(progress.value.map((entry) => [entry.topicId, entry])))
+const recommendation = computed(() => recommendNextTopic(curriculumTopics, progress.value))
 
 const rooms = computed(() =>
-  curriculumTopics.map((topic) => ({
-    topic,
-    status: deriveTopicStatus(topic, progressMap.value),
-    mastery: progressMap.value.get(topic.id)?.mastery ?? 0,
-  })),
+  curriculumTopics.map((topic) => {
+    const derivedStatus = deriveTopicStatus(topic, progressMap.value)
+    return {
+      topic,
+      status:
+        recommendation.value?.id === topic.id && derivedStatus === 'ready'
+          ? ('recommended' as const)
+          : derivedStatus,
+      mastery: progressMap.value.get(topic.id)?.mastery ?? 0,
+    }
+  }),
 )
 
-const lockedReasons = computed(() =>
-  selectedLockedTopic.value
-    ? missingPrerequisites(selectedLockedTopic.value, curriculumTopics, progressMap.value)
+const prerequisiteGaps = computed(() =>
+  selectedTopic.value
+    ? missingPrerequisites(selectedTopic.value, curriculumTopics, progressMap.value)
     : [],
 )
 
@@ -36,17 +45,18 @@ onMounted(async () => {
   if (profileId) progress.value = await learningRepository.listTopicProgress(profileId)
 })
 
-function openTopic(topic: CurriculumTopic, status: string): void {
-  if (status === 'locked') {
-    selectedLockedTopic.value = topic
+function openTopic(topic: CurriculumTopic, status: TopicProgress['status']): void {
+  if (status === 'challenging') {
+    selectedTopic.value = topic
     return
   }
   router.push(`/learn/${topic.id}`)
 }
 
 const statusLabels = {
-  locked: 'Закрито',
-  available: 'Доступно',
+  recommended: 'Рекомендовано',
+  ready: 'Можна починати',
+  challenging: 'Можна спробувати',
   inProgress: 'У процесі',
   reviewNeeded: 'Час повторити',
   mastered: 'Засвоєно',
@@ -58,7 +68,10 @@ const statusLabels = {
     <header class="page-heading page-heading--left">
       <span class="eyebrow">Подорож академією</span>
       <h1>Карта навчання</h1>
-      <p>Складніші кімнати відкриваються, коли для них уже є надійна основа.</p>
+      <p>
+        Усі кімнати відкриті. Ми підказуємо комфортний маршрут, але остаточний вибір
+        завжди за тобою.
+      </p>
     </header>
 
     <div class="map-layout">
@@ -70,7 +83,7 @@ const statusLabels = {
         >
           <button type="button" class="topic-node" @click="openTopic(topic, status)">
             <span class="topic-node__marker" aria-hidden="true">
-              {{ status === 'mastered' ? '✓' : status === 'locked' ? '⌁' : topic.order }}
+              {{ status === 'mastered' ? '✓' : status === 'challenging' ? '◇' : topic.order }}
             </span>
             <span class="topic-node__copy">
               <span class="topic-node__meta">
@@ -90,31 +103,53 @@ const statusLabels = {
         </li>
       </ol>
 
-      <aside v-if="selectedLockedTopic" class="locked-explanation" role="status">
+      <aside v-if="selectedTopic" class="locked-explanation topic-choice-panel" role="dialog" aria-modal="false">
         <button
           class="icon-button"
           type="button"
           aria-label="Закрити пояснення"
-          @click="selectedLockedTopic = undefined"
+          @click="selectedTopic = undefined"
         >
           ×
         </button>
-        <span class="locked-explanation__icon" aria-hidden="true">⌁</span>
-        <h2>Кімната ще готується</h2>
+        <span class="locked-explanation__icon" aria-hidden="true">◇</span>
+        <span class="eyebrow">Вільне дослідження</span>
+        <h2>Можна спробувати просто зараз</h2>
         <p>
-          Щоб перейти до теми «{{ selectedLockedTopic.title }}», спершу зміцни:
+          У темі «{{ selectedTopic.title }}» зустрінуться знання, які ми ще не
+          практикували:
         </p>
         <ul>
-          <li v-for="topic in lockedReasons" :key="topic.id">{{ topic.title }}</li>
+          <li v-for="topic in prerequisiteGaps" :key="topic.id">{{ topic.title }}</li>
         </ul>
-        <button
-          v-if="lockedReasons[0]"
-          class="base-button base-button--primary"
-          type="button"
-          @click="router.push(`/learn/${lockedReasons[0]?.id}`)"
-        >
-          Перейти до першої передумови
-        </button>
+        <div class="topic-choice-panel__actions">
+          <button
+            class="base-button base-button--primary"
+            type="button"
+            @click="router.push(`/learn/${selectedTopic?.id}?mode=preview`)"
+          >
+            Спробувати 3-хв прев’ю
+          </button>
+          <button
+            v-if="findPilotLesson(selectedTopic.id)"
+            class="base-button base-button--secondary"
+            type="button"
+            @click="router.push(`/learn/${selectedTopic?.id}`)"
+          >
+            Відкрити повний урок
+          </button>
+          <span v-else class="topic-choice-panel__soon">
+            Повний урок готується · прев’ю вже працює
+          </span>
+          <button
+            v-if="prerequisiteGaps[0]"
+            class="text-button"
+            type="button"
+            @click="router.push(`/learn/${prerequisiteGaps[0]?.id}`)"
+          >
+            Спочатку підготуватися
+          </button>
+        </div>
       </aside>
     </div>
   </section>

@@ -30,7 +30,7 @@ export function deriveTopicStatus(
     return 'inProgress'
   }
 
-  return arePrerequisitesMet(topic, progressByTopicId) ? 'available' : 'locked'
+  return arePrerequisitesMet(topic, progressByTopicId) ? 'ready' : 'challenging'
 }
 
 export function missingPrerequisites(
@@ -53,6 +53,6 @@ export function recommendNextTopic(
     .sort((a, b) => a.order - b.order)
     .find((topic) => {
       const status = deriveTopicStatus(topic, progressMap)
-      return status === 'available' || status === 'inProgress' || status === 'reviewNeeded'
+      return status === 'ready' || status === 'inProgress' || status === 'reviewNeeded'
     })
 }

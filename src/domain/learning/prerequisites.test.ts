@@ -22,10 +22,10 @@ function progress(topicId: string, mastery: number): TopicProgress {
 }
 
 describe('curriculum prerequisites', () => {
-  it('makes the first topic available without saved progress', () => {
+  it('makes the first topic ready without saved progress', () => {
     const first = findTopic('natural-numbers')
     expect(first).toBeDefined()
-    expect(deriveTopicStatus(first!, new Map())).toBe('available')
+    expect(deriveTopicStatus(first!, new Map())).toBe('ready')
   })
 
   it('unlocks a dependent topic at the configured foundation threshold', () => {
@@ -33,7 +33,13 @@ describe('curriculum prerequisites', () => {
     const saved = new Map([['natural-numbers', progress('natural-numbers', 60)]])
 
     expect(arePrerequisitesMet(topic!, saved)).toBe(true)
-    expect(deriveTopicStatus(topic!, saved)).toBe('available')
+    expect(deriveTopicStatus(topic!, saved)).toBe('ready')
+  })
+
+  it('keeps an advanced topic open but marks it as challenging', () => {
+    const topic = findTopic('percentages')
+
+    expect(deriveTopicStatus(topic!, new Map())).toBe('challenging')
   })
 
   it('explains which prerequisite is still missing', () => {

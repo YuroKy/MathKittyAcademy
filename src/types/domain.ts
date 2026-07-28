@@ -1,5 +1,11 @@
 export type DailyGoalMinutes = 10 | 15 | 20
-export type TopicStatus = 'locked' | 'available' | 'inProgress' | 'reviewNeeded' | 'mastered'
+export type TopicStatus =
+  | 'recommended'
+  | 'ready'
+  | 'challenging'
+  | 'inProgress'
+  | 'reviewNeeded'
+  | 'mastered'
 export type ErrorType =
   | 'conceptMisunderstanding'
   | 'calculationError'
@@ -55,6 +61,7 @@ export interface LearningSession {
   currentStage?: string
   currentExerciseIndex?: number
   exerciseSeeds: string[]
+  interactionState?: Record<string, unknown>
   earnedXp: number
 }
 
@@ -142,4 +149,25 @@ export interface ExerciseInstance {
   expectedAnswer: string
   hints: string[]
   solutionSteps: string[]
+}
+
+export interface TopicPreview {
+  topicId: string
+  hook: string
+  question: string
+  choices: string[]
+  correctChoiceIndex: number
+  explanation: string
+  challengeLabel: string
+}
+
+export interface PilotLessonContent {
+  topicId: 'natural-numbers' | 'fraction-meaning'
+  introTitle: string
+  introText: string
+  mascotMessage: string
+  interactionKind: 'groupingBoard' | 'fractionBar'
+  guidedTitle: string
+  guidedSteps: string[]
+  summaryText: string
 }

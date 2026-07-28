@@ -77,11 +77,13 @@ class LearningRepository {
     currentStage: string,
     currentExerciseIndex: number,
     exerciseSeeds: string[],
+    interactionState?: Record<string, unknown>,
   ): Promise<void> {
     await db.sessions.update(sessionId, {
       currentStage,
       currentExerciseIndex,
       exerciseSeeds,
+      ...(interactionState ? { interactionState } : {}),
     })
   }
 

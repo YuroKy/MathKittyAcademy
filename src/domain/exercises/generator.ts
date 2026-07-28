@@ -100,3 +100,44 @@ export function buildNaturalNumbersExerciseSet(sessionId: string): ExerciseInsta
     generateNaturalNumbersExercise('multiplication', `${sessionId}:2`),
   ]
 }
+
+export function generateFractionMeaningExercise(seed: string, index: number): ExerciseInstance {
+  const random = seededRandom(`fraction-meaning:${seed}:${index}`)
+  const denominators = [4, 6, 8]
+  const denominator = denominators[integer(random, 0, denominators.length - 1)] ?? 6
+  const numerator =
+    index === 2 ? denominator / 2 : integer(random, 1, Math.max(1, denominator - 1))
+  const expectedAnswer = index === 2 ? '1/2' : `${numerator}/${denominator}`
+
+  return {
+    id: `fraction-meaning:${seed}:${index}`,
+    templateId: index === 2 ? 'fraction-half-recognition' : 'fraction-model-reading',
+    seed: `${seed}:${index}`,
+    topicId: 'fraction-meaning',
+    skillIds: ['fraction-model', 'fraction-notation'],
+    difficulty: index === 2 ? 2 : 1,
+    kind: 'fractionInput',
+    prompt:
+      index === 2
+        ? `Зафарбовано ${numerator} із ${denominator} рівних частин. Яку частину цілого це становить?`
+        : `Ціле поділили на ${denominator} рівних частин і вибрали ${numerator}. Запиши дріб.`,
+    expectedAnswer,
+    hints: [
+      `Усього рівних частин ${denominator} — це знаменник.`,
+      index === 2
+        ? `${numerator}/${denominator} можна скоротити до 1/2.`
+        : `Вибрано ${numerator} частини — це чисельник.`,
+    ],
+    solutionSteps: [
+      `Записуємо кількість вибраних частин над рискою: ${numerator}.`,
+      `Кількість усіх рівних частин записуємо під рискою: ${denominator}.`,
+      `Отримуємо ${numerator}/${denominator}${index === 2 ? ' = 1/2' : ''}.`,
+    ],
+  }
+}
+
+export function buildFractionMeaningExerciseSet(sessionId: string): ExerciseInstance[] {
+  return [0, 1, 2].map((index) =>
+    generateFractionMeaningExercise(`${sessionId}:fraction`, index),
+  )
+}

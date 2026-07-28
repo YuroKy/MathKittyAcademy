@@ -37,6 +37,29 @@ export class MathKittyDatabase extends Dexie {
       gamification: 'profileId',
       settings: 'profileId',
     })
+
+    this.version(2)
+      .stores({
+        profiles: 'id, updatedAt',
+        topicProgress: '[profileId+topicId], profileId, topicId, status, lastPracticedAt',
+        skillProgress: '[profileId+skillId], profileId, skillId, lastPracticedAt',
+        sessions: 'id, profileId, [profileId+status], [profileId+topicId], startedAt',
+        attempts: 'id, profileId, sessionId, exerciseId, createdAt',
+        reviewItems: 'id, profileId, [profileId+skillId], [profileId+dueAt]',
+        mistakes: 'id, profileId, topicId, [profileId+resolved], createdAt',
+        gamification: 'profileId',
+        settings: 'profileId',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table('topicProgress')
+          .toCollection()
+          .modify((entry: { status?: string }) => {
+            if (entry.status === 'locked' || entry.status === 'available') {
+              entry.status = 'ready'
+            }
+          })
+      })
   }
 }
 

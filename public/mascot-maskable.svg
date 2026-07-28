@@ -1,9 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#ec6f9e"/>
-  <circle cx="256" cy="256" r="198" fill="#ffd7e6"/>
-  <path d="M151 229 132 132l83 50c25-11 55-11 80 0l84-50-20 97c17 23 26 51 26 81 0 73-57 121-129 121S127 383 127 310c0-30 9-58 24-81Z" fill="#fff" stroke="#3f3440" stroke-width="15" stroke-linejoin="round"/>
-  <ellipse cx="207" cy="286" rx="11" ry="15" fill="#3f3440"/>
-  <ellipse cx="305" cy="286" rx="11" ry="15" fill="#3f3440"/>
-  <path d="M244 314q12 15 24 0M256 310v17" fill="none" stroke="#3f3440" stroke-width="8" stroke-linecap="round"/>
-  <path d="M321 179c21-29 65-16 63 19-2 25-31 39-63 61-32-22-61-36-63-61-2-35 42-48 63-19Z" fill="#8fc9e8" stroke="#3f3440" stroke-width="10"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Анімешна киця Мурка">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ec6f9e"/>
+      <stop offset="1" stop-color="#72b9dc"/>
+    </linearGradient>
+    <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#397c9d"/>
+      <stop offset=".58" stop-color="#69b9dc"/>
+      <stop offset="1" stop-color="#bdefff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="202" fill="#fff0f6"/>
+  <path d="M151 230 133 128l89 53c22-9 46-9 68 0l89-53-18 102c16 20 25 46 25 74 0 74-57 124-130 124s-130-50-130-124c0-28 9-54 25-74Z" fill="#fff" stroke="#3f3440" stroke-width="14" stroke-linejoin="round"/>
+  <path d="m146 155 59 34-45 30Zm220 0-59 34 45 30Z" fill="#ffdbe8"/>
+  <path d="M208 179c10-27 37-39 59-30 15 5 21 16 16 27-5 12-25 7-29 22-3 12 10 18 2 30-10-7-16-15-19-26-9 11-23 17-40 18 9-15 9-27 11-41Z" fill="#fff" stroke="#3f3440" stroke-width="10" stroke-linejoin="round"/>
+  <ellipse cx="201" cy="288" rx="32" ry="42" fill="#fff" stroke="#3f3440" stroke-width="10"/>
+  <ellipse cx="311" cy="288" rx="32" ry="42" fill="#fff" stroke="#3f3440" stroke-width="10"/>
+  <ellipse cx="204" cy="294" rx="20" ry="29" fill="url(#eye)"/>
+  <ellipse cx="308" cy="294" rx="20" ry="29" fill="url(#eye)"/>
+  <ellipse cx="207" cy="300" rx="10" ry="17" fill="#263b4e"/>
+  <ellipse cx="305" cy="300" rx="10" ry="17" fill="#263b4e"/>
+  <circle cx="196" cy="279" r="9" fill="#fff"/>
+  <circle cx="299" cy="279" r="9" fill="#fff"/>
+  <ellipse cx="164" cy="330" rx="25" ry="13" fill="#f7a9c4" opacity=".35"/>
+  <ellipse cx="348" cy="330" rx="25" ry="13" fill="#f7a9c4" opacity=".35"/>
+  <path d="m245 335 11-7 11 7-11 10Z" fill="#ec6f9e"/>
+  <path d="M256 343v10m-17 1q17 19 34 0" fill="none" stroke="#3f3440" stroke-width="8" stroke-linecap="round"/>
+  <path d="m330 177 10 20 23 3-17 16 4 22-20-11-20 11 4-22-17-16 23-3Z" fill="#8fc9e8" stroke="#3f3440" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="330" cy="203" r="6" fill="#fff"/>
 </svg>
