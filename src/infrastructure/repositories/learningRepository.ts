@@ -24,6 +24,14 @@ export interface RecordAttemptInput {
   hintLevelUsed: number
 }
 
+export interface LearningStats {
+  completedLessons: number
+  correctAttempts: number
+  totalAttempts: number
+  studyMinutes: number
+  weeklyMinutes: number[]
+}
+
 class LearningRepository {
   async listTopicProgress(profileId: string): Promise<TopicProgress[]> {
     return db.topicProgress.where('profileId').equals(profileId).toArray()
@@ -36,6 +44,48 @@ class LearningRepository {
   async countDueReviews(profileId: string, at = new Date()): Promise<number> {
     const items = await db.reviewItems.where('profileId').equals(profileId).toArray()
     return items.filter((item) => item.dueAt <= at.toISOString()).length
+  }
+
+  async getLearningStats(profileId: string, at = new Date()): Promise<LearningStats> {
+    const [sessions, attempts] = await Promise.all([
+      db.sessions.where('profileId').equals(profileId).toArray(),
+      db.attempts.where('profileId').equals(profileId).toArray(),
+    ])
+    const completedLessons = sessions.filter(
+      (session) => session.type === 'lesson' && session.status === 'completed',
+    )
+    const startOfToday = new Date(at)
+    startOfToday.setHours(0, 0, 0, 0)
+    const weekDates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(startOfToday)
+      date.setDate(startOfToday.getDate() - (6 - index))
+      return date
+    })
+    const sessionMinutes = (session: LearningSession): number => {
+      if (!session.completedAt) return 0
+      const duration = Math.round(
+        (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) /
+          60_000,
+      )
+      return Math.min(60, Math.max(1, duration))
+    }
+    const weeklyMinutes = weekDates.map((date) => {
+      const dayKey = date.toISOString().slice(0, 10)
+      return completedLessons
+        .filter((session) => session.completedAt?.slice(0, 10) === dayKey)
+        .reduce((total, session) => total + sessionMinutes(session), 0)
+    })
+
+    return {
+      completedLessons: completedLessons.length,
+      correctAttempts: attempts.filter((attempt) => attempt.isCorrect).length,
+      totalAttempts: attempts.length,
+      studyMinutes: completedLessons.reduce(
+        (total, session) => total + sessionMinutes(session),
+        0,
+      ),
+      weeklyMinutes,
+    }
   }
 
   async findActiveLesson(

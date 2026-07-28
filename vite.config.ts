@@ -12,7 +12,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['mascot-icon.svg'],
+      includeAssets: ['murka-anime-avatar-v2.png', 'murka-anime-maskable-v2.png'],
       manifest: {
         name: 'Math Kitty Academy',
         short_name: 'Math Kitty',
@@ -25,22 +25,22 @@ export default defineConfig({
         theme_color: '#ec6f9e',
         icons: [
           {
-            src: 'mascot-icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'murka-anime-avatar-v2.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'mascot-maskable.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'murka-anime-maskable-v2.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
       },
       workbox: {
         navigateFallback: 'index.html',
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
       },
       devOptions: {

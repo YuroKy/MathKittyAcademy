@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 
+import AppIcon from '@/components/base/AppIcon.vue'
 import OfflineIndicator from '@/components/base/OfflineIndicator.vue'
 import PwaPrompt from '@/components/base/PwaPrompt.vue'
+import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
+import type { GamificationState } from '@/types/domain'
 
 const route = useRoute()
 const profileStore = useProfileStore()
+const gamification = ref<GamificationState>()
 
 const showNavigation = computed(
   () =>
@@ -16,6 +20,16 @@ const showNavigation = computed(
 )
 
 onMounted(() => profileStore.initialize())
+
+watch(
+  [() => profileStore.activeProfile?.id, () => route.fullPath],
+  async ([profileId]) => {
+    gamification.value = profileId
+      ? await learningRepository.getGamification(profileId)
+      : undefined
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -23,13 +37,57 @@ onMounted(() => profileStore.initialize())
     <OfflineIndicator />
 
     <header v-if="showNavigation" class="app-header">
-      <RouterLink class="brand" to="/home" aria-label="На головну">
-        <img src="/mascot-icon.svg" alt="" width="42" height="42" />
-        <span>Math Kitty</span>
-      </RouterLink>
-      <div class="header-profile" aria-label="Активний профіль">
-        <span class="header-profile__dot" aria-hidden="true">♥</span>
-        {{ profileStore.activeProfile?.name }}
+      <div class="app-header__inner">
+        <RouterLink class="brand" to="/home" aria-label="На головну">
+          <span class="brand__crest">
+            <img src="/murka-anime-avatar-v2.png" alt="" width="44" height="44" />
+          </span>
+          <span class="brand__copy">
+            <strong>Math Kitty</strong>
+            <small>Academy</small>
+          </span>
+        </RouterLink>
+
+        <nav class="desktop-nav" aria-label="Головна навігація">
+          <RouterLink to="/home">
+            <AppIcon name="home" />
+            <span>Головна</span>
+          </RouterLink>
+          <RouterLink to="/map" aria-label="Карта навчання">
+            <AppIcon name="map" />
+            <span>Карта</span>
+          </RouterLink>
+          <RouterLink to="/progress">
+            <AppIcon name="progress" />
+            <span>Прогрес</span>
+          </RouterLink>
+          <RouterLink to="/collection">
+            <AppIcon name="collection" />
+            <span>Колекція</span>
+          </RouterLink>
+        </nav>
+
+        <div class="header-resources" aria-label="Навчальні ресурси">
+          <span class="resource-pill resource-pill--streak">
+            <AppIcon name="flame" />
+            <strong>{{ gamification?.currentStreak ?? 0 }}</strong>
+            <small>серія</small>
+          </span>
+          <span class="resource-pill resource-pill--xp">
+            <AppIcon name="star" />
+            <strong>{{ gamification?.xp ?? 0 }}</strong>
+            <small>XP</small>
+          </span>
+          <span class="resource-pill resource-pill--level">
+            <AppIcon name="crown" />
+            <strong>{{ gamification?.level ?? 1 }}</strong>
+            <small>рівень</small>
+          </span>
+          <RouterLink class="header-profile" to="/profiles" aria-label="Змінити активний профіль">
+            <img src="/murka-anime-avatar-v2.png" alt="" width="34" height="34" />
+            <span>{{ profileStore.activeProfile?.name }}</span>
+          </RouterLink>
+        </div>
       </div>
     </header>
 
@@ -45,20 +103,20 @@ onMounted(() => profileStore.initialize())
     </main>
 
     <nav v-if="showNavigation" class="bottom-nav" aria-label="Головна навігація">
-      <RouterLink to="/home" aria-label="Головна">
-        <span aria-hidden="true">⌂</span>
+      <RouterLink to="/home">
+        <AppIcon name="home" />
         <small>Головна</small>
       </RouterLink>
       <RouterLink to="/map" aria-label="Карта навчання">
-        <span aria-hidden="true">✦</span>
+        <AppIcon name="map" />
         <small>Карта</small>
       </RouterLink>
-      <RouterLink to="/progress" aria-label="Прогрес">
-        <span aria-hidden="true">♡</span>
+      <RouterLink to="/progress">
+        <AppIcon name="progress" />
         <small>Прогрес</small>
       </RouterLink>
-      <RouterLink to="/collection" aria-label="Колекція">
-        <span aria-hidden="true">★</span>
+      <RouterLink to="/collection">
+        <AppIcon name="collection" />
         <small>Колекція</small>
       </RouterLink>
     </nav>

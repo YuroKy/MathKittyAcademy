@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
@@ -162,16 +163,16 @@ async function finish(): Promise<void> {
           <div class="choice-grid">
             <button
               v-for="avatar in [
-                { id: 'murka-blue-heart', symbol: '♥', label: 'Блакитне серце' },
-                { id: 'murka-gold-star', symbol: '★', label: 'Золота зірка' },
-                { id: 'murka-pink-scarf', symbol: '〰', label: 'Рожевий шарфик' },
+                { id: 'murka-blue-heart', icon: 'heart' as const, label: 'Блакитне серце' },
+                { id: 'murka-gold-star', icon: 'star' as const, label: 'Золота зірка' },
+                { id: 'murka-pink-scarf', icon: 'ribbon' as const, label: 'Рожевий бантик' },
               ]"
               :key="avatar.id"
               type="button"
               :class="{ selected: form.avatarId === avatar.id }"
               @click="form.avatarId = avatar.id"
             >
-              <strong aria-hidden="true">{{ avatar.symbol }}</strong>
+              <strong aria-hidden="true"><AppIcon :name="avatar.icon" /></strong>
               <span>{{ avatar.label }}</span>
             </button>
           </div>

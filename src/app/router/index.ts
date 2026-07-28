@@ -69,14 +69,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/progress',
     name: 'progress',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'progress' },
+    component: () => import('@/features/progress/ProgressView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/collection',
     name: 'collection',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'collection' },
+    component: () => import('@/features/collection/CollectionView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/settings',

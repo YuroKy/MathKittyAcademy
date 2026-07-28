@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 
+import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { useProfileStore } from '@/stores/profile'
@@ -33,12 +34,12 @@ async function selectProfile(profile: StudentProfile): Promise<void> {
           type="button"
           @click="selectProfile(profile)"
         >
-          <span class="profile-option__avatar" aria-hidden="true">🐾</span>
+          <span class="profile-option__avatar" aria-hidden="true"><AppIcon name="paw" /></span>
           <span>
             <strong>{{ profile.name }}</strong>
             <small>{{ profile.dailyGoalMinutes }} хв щодня</small>
           </span>
-          <span aria-hidden="true">→</span>
+          <AppIcon name="arrow-right" />
         </button>
 
         <BaseButton variant="secondary" @click="router.push('/onboarding')">
