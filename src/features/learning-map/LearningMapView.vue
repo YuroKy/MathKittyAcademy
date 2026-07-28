@@ -13,7 +13,7 @@ import {
   type AtlasTopic,
 } from '@/content/curriculum/atlas'
 import { curriculumTopics, findTopic } from '@/content/curriculum/topics'
-import { findPilotLesson } from '@/content/lessons/pilotLessons'
+import { findGrade5Lesson } from '@/content/lessons/grade5Lessons'
 import {
   deriveTopicStatus,
   missingPrerequisites,
@@ -473,7 +473,7 @@ function launchSelected(preview = false): void {
 
         <div class="topic-modal__actions">
           <BaseButton
-            v-if="selectedRoom.status !== 'challenging' || findPilotLesson(selectedTopic.id)"
+            v-if="selectedRoom.status !== 'challenging' || findGrade5Lesson(selectedTopic.id)"
             @click="launchSelected(false)"
           >
             <AppIcon name="play" />
@@ -481,7 +481,7 @@ function launchSelected(preview = false): void {
           </BaseButton>
           <BaseButton
             v-if="selectedRoom.status === 'challenging'"
-            :variant="findPilotLesson(selectedTopic.id) ? 'secondary' : 'primary'"
+            :variant="findGrade5Lesson(selectedTopic.id) ? 'secondary' : 'primary'"
             @click="launchSelected(true)"
           >
             Спробувати 3-хв прев’ю

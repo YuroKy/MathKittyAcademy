@@ -1,4 +1,5 @@
 import { curriculumTopics } from '@/content/curriculum/topics'
+import { findGrade5Lesson } from '@/content/lessons/grade5Lessons'
 import type { TopicPreview } from '@/types/domain'
 
 const authoredTopicPreviews: Record<string, TopicPreview> = {
@@ -159,7 +160,9 @@ function buildExplorationPreview(topic: (typeof curriculumTopics)[number]): Topi
 export const topicPreviews: Record<string, TopicPreview> = Object.fromEntries(
   curriculumTopics.map((topic) => [
     topic.id,
-    authoredTopicPreviews[topic.id] ?? buildExplorationPreview(topic),
+    findGrade5Lesson(topic.id)?.preview ??
+      authoredTopicPreviews[topic.id] ??
+      buildExplorationPreview(topic),
   ]),
 )
 

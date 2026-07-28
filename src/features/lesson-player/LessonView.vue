@@ -10,15 +10,11 @@ import GroupingBoard from '@/components/learning/GroupingBoard.vue'
 import GuidedStepBuilder from '@/components/learning/GuidedStepBuilder.vue'
 import PredictionChoice from '@/components/learning/PredictionChoice.vue'
 import TapReveal from '@/components/learning/TapReveal.vue'
-import MathExpression from '@/components/math/MathExpression.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { findTopic } from '@/content/curriculum/topics'
-import { findPilotLesson } from '@/content/lessons/pilotLessons'
+import { findGrade5Lesson } from '@/content/lessons/grade5Lessons'
 import { findTopicPreview } from '@/content/lessons/topicPreviews'
-import {
-  buildFractionMeaningExerciseSet,
-  buildNaturalNumbersExerciseSet,
-} from '@/domain/exercises/generator'
+import { buildLessonExerciseSet } from '@/domain/exercises/generator'
 import { areEquivalentAnswers } from '@/domain/exercises/rational'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
@@ -50,9 +46,9 @@ const router = useRouter()
 const profileStore = useProfileStore()
 const topic = computed(() => findTopic(String(route.params.topicId)))
 const preview = computed(() => findTopicPreview(String(route.params.topicId)))
-const pilotLesson = computed(() => findPilotLesson(String(route.params.topicId)))
+const fullLesson = computed(() => findGrade5Lesson(String(route.params.topicId)))
 const requestedPreview = computed(() => route.query.mode === 'preview')
-const previewOnly = computed(() => requestedPreview.value || !pilotLesson.value)
+const previewOnly = computed(() => requestedPreview.value || !fullLesson.value)
 const stageOrder = computed(() => (previewOnly.value ? previewStageOrder : fullStageOrder))
 
 const session = ref<LearningSession>()
@@ -83,16 +79,18 @@ const overallProgress = computed(() => {
 })
 const visibleHints = computed(() => currentExercise.value?.hints.slice(0, hintLevel.value) ?? [])
 const interactionComplete = computed(() => {
-  if (!pilotLesson.value) return revealIndexes.value.length === 3
-  return pilotLesson.value.interactionKind === 'groupingBoard'
-    ? groupCounts.value.reduce((sum, count) => sum + count, 0) === 12
-    : fractionParts.value.length === 3
+  if (!fullLesson.value) return revealIndexes.value.length === genericRevealItems.value.length
+  if (fullLesson.value.interactionKind === 'groupingBoard') {
+    return groupCounts.value.reduce((sum, count) => sum + count, 0) === 12
+  }
+  if (fullLesson.value.interactionKind === 'fractionBar') return fractionParts.value.length === 3
+  return revealIndexes.value.length === fullLesson.value.explorationItems.length
 })
 const canContinue = computed(() => {
   if (stage.value === 'prediction') return predictionIndex.value !== undefined
   if (stage.value === 'explore') return interactionComplete.value
   if (stage.value === 'guided-example') {
-    return guidedStepCount.value === (pilotLesson.value?.guidedSteps.length ?? 0)
+    return guidedStepCount.value === (fullLesson.value?.guidedSteps.length ?? 0)
   }
   return stage.value !== 'practice'
 })
@@ -110,6 +108,12 @@ const genericRevealItems = computed(() => [
     content: preview.value?.challengeLabel ?? 'Спробуй коротку вправу.',
   },
 ])
+const explorationItems = computed(
+  () => fullLesson.value?.explorationItems ?? genericRevealItems.value,
+)
+const explorationTitle = computed(
+  () => fullLesson.value?.explorationTitle ?? 'Відкрий три підказки теми',
+)
 
 onMounted(initializeLesson)
 
@@ -127,14 +131,11 @@ async function initializeLesson(): Promise<void> {
 
 async function initializeFullSession(reset = false): Promise<void> {
   const profileId = profileStore.activeProfile?.id
-  if (!profileId || !topic.value || !pilotLesson.value) return
+  if (!profileId || !topic.value || !fullLesson.value) return
 
   try {
     session.value = await learningRepository.startLesson(profileId, topic.value.id)
-    exercises.value =
-      topic.value.id === 'fraction-meaning'
-        ? buildFractionMeaningExerciseSet(session.value.id)
-        : buildNaturalNumbersExerciseSet(session.value.id)
+    exercises.value = buildLessonExerciseSet(fullLesson.value, session.value.id)
 
     if (!reset) {
       stage.value = isLessonStage(session.value.currentStage)
@@ -230,7 +231,7 @@ function updateRevealIndexes(value: number[]): void {
 }
 
 async function startFullLesson(): Promise<void> {
-  if (!pilotLesson.value) return
+  if (!fullLesson.value) return
   await router.replace({ path: route.path })
   resetInteractiveState()
   stage.value = 'introduction'
@@ -387,13 +388,13 @@ async function nextExercise(): Promise<void> {
         <MascotCard
           mood="explaining"
           :message="
-            pilotLesson?.mascotMessage ?? 'За три хвилини торкнемося головної ідеї цієї теми.'
+            fullLesson?.mascotMessage ?? 'За три хвилини торкнемося головної ідеї цієї теми.'
           "
         />
         <div class="lesson-copy">
           <span class="eyebrow">{{ previewOnly ? 'Вільна спроба' : 'Крок 1 · Старт' }}</span>
-          <h1>{{ pilotLesson?.introTitle ?? topic.title }}</h1>
-          <p>{{ pilotLesson?.introText ?? preview.hook }}</p>
+          <h1>{{ fullLesson?.introTitle ?? topic.title }}</h1>
+          <p>{{ fullLesson?.introText ?? preview.hook }}</p>
           <div class="lesson-promise">
             <span aria-hidden="true">✦</span>
             <p>Тут не буде довгого вступу: спочатку твоя гіпотеза, потім — взаємодія.</p>
@@ -414,27 +415,28 @@ async function nextExercise(): Promise<void> {
 
       <template v-else-if="stage === 'explore'">
         <GroupingBoard
-          v-if="pilotLesson?.interactionKind === 'groupingBoard'"
+          v-if="fullLesson?.interactionKind === 'groupingBoard'"
           :model-value="groupCounts"
           @update:model-value="updateGroupCounts"
         />
         <FractionBar
-          v-else-if="pilotLesson?.interactionKind === 'fractionBar'"
+          v-else-if="fullLesson?.interactionKind === 'fractionBar'"
           :model-value="fractionParts"
           @update:model-value="updateFractionParts"
         />
         <TapReveal
           v-else
-          :items="genericRevealItems"
+          :items="explorationItems"
+          :title="explorationTitle"
           :model-value="revealIndexes"
           @update:model-value="updateRevealIndexes"
         />
       </template>
 
       <GuidedStepBuilder
-        v-else-if="stage === 'guided-example' && pilotLesson"
-        :title="pilotLesson.guidedTitle"
-        :steps="pilotLesson.guidedSteps"
+        v-else-if="stage === 'guided-example' && fullLesson"
+        :title="fullLesson.guidedTitle"
+        :steps="fullLesson.guidedSteps"
         :revealed-count="guidedStepCount"
         @update:revealed-count="updateGuidedSteps"
       />
@@ -447,18 +449,8 @@ async function nextExercise(): Promise<void> {
             >
             <span class="difficulty-pill">інтерактивна основа</span>
           </div>
-          <h1>
-            {{ currentExercise.topicId === 'fraction-meaning' ? 'Запиши дріб' : 'Обчисли вираз' }}
-          </h1>
-          <p v-if="currentExercise.topicId === 'fraction-meaning'" class="exercise-question">
-            {{ currentExercise.prompt }}
-          </p>
-          <MathExpression
-            v-else
-            :expression="currentExercise.prompt.replace('?', '')"
-            display
-            :label="currentExercise.prompt"
-          />
+          <h1>{{ currentExercise.title ?? 'Виконай вправу' }}</h1>
+          <p class="exercise-question">{{ currentExercise.prompt }}</p>
 
           <form class="answer-form" @submit.prevent="submitAnswer">
             <label class="field">
@@ -545,14 +537,14 @@ async function nextExercise(): Promise<void> {
           <span class="eyebrow">{{ previewOnly ? 'Прев’ю завершено' : 'Заняття завершено' }}</span>
           <h1>{{ previewOnly ? 'Ідею спробовано' : 'Ще один надійний крок' }}</h1>
           <p>
-            {{ previewOnly ? preview.explanation : pilotLesson?.summaryText }}
+            {{ previewOnly ? preview.explanation : fullLesson?.summaryText }}
           </p>
           <div v-if="!previewOnly" class="reward-row">
             <span><strong>+40</strong> XP</span>
             <span><strong>3</strong> взаємодії</span>
             <span><strong>↻</strong> повторення</span>
           </div>
-          <div v-else-if="!pilotLesson" class="preview-coming-soon">
+          <div v-else-if="!fullLesson" class="preview-coming-soon">
             Повний інтерактивний урок для цієї теми буде наступним контентним оновленням. Прев’ю вже
             доступне без жодних передумов.
           </div>
@@ -563,7 +555,7 @@ async function nextExercise(): Promise<void> {
 
       <footer v-if="stage !== 'practice'" class="lesson-actions lesson-actions--stackable">
         <template v-if="stage === 'summary'">
-          <BaseButton v-if="previewOnly && pilotLesson" @click="startFullLesson">
+          <BaseButton v-if="previewOnly && fullLesson" @click="startFullLesson">
             Продовжити повний урок
           </BaseButton>
           <BaseButton variant="secondary" @click="router.push('/map')">

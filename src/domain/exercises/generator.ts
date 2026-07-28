@@ -1,4 +1,4 @@
-import type { ExerciseInstance } from '@/types/domain'
+import type { ExerciseInstance, FullLessonContent } from '@/types/domain'
 
 function hashSeed(seed: string): number {
   let hash = 2166136261
@@ -22,6 +22,21 @@ function seededRandom(seed: string): () => number {
 
 function integer(random: () => number, min: number, max: number): number {
   return Math.floor(random() * (max - min + 1)) + min
+}
+
+export function buildLessonExerciseSet(
+  lesson: FullLessonContent,
+  sessionId: string,
+): ExerciseInstance[] {
+  return lesson.exercises.map((exercise, index) => {
+    const seed = `${sessionId}:${exercise.templateId}:${index}`
+    return {
+      ...exercise,
+      id: `${exercise.templateId}:${seed}`,
+      seed,
+      topicId: lesson.topicId,
+    }
+  })
 }
 
 export function generateNaturalNumbersExercise(

@@ -45,11 +45,42 @@ test('lets a learner preview an advanced topic in any order', async ({ page }) =
   await page.getByRole('button', { name: /Половина/ }).click()
   await page.getByRole('button', { name: /Продовжити/ }).click()
 
-  await page.getByRole('button', { name: /Головна ідея/ }).click()
-  await page.getByRole('button', { name: /Як перевірити/ }).click()
-  await page.getByRole('button', { name: /Твій виклик/ }).click()
+  await page.getByRole('button', { name: /^1%/ }).click()
+  await page.getByRole('button', { name: /Відсоток від числа/ }).click()
+  await page.getByRole('button', { name: /Ціле за відсотком/ }).click()
   await page.getByRole('button', { name: /Продовжити/ }).click()
 
   await expect(page.getByRole('heading', { name: 'Ідею спробовано' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Обрати іншу тему' })).toBeVisible()
+})
+
+test('opens a complete flow for a newly authored grade 5 lesson', async ({ page }) => {
+  await createProfile(page, 'Оленка')
+  await page.getByRole('link', { name: 'Карта навчання' }).click()
+
+  await page.getByRole('searchbox', { name: 'Знайти тему на карті' }).fill('Ділення з остачею')
+  await page.getByRole('button', { name: /Ділення з остачею/ }).click()
+  await page.getByRole('button', { name: 'Почати урок' }).click()
+
+  await expect(page).toHaveURL(/\/learn\/division-with-remainder$/)
+  await expect(
+    page.getByRole('heading', { name: 'Остача — це точна відповідь на нерівний розподіл' }),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+  await page.getByRole('button', { name: /^A 5$/ }).click()
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+
+  await page.getByRole('button', { name: /Неповна частка/ }).click()
+  await page.getByRole('button', { name: /^Остача/ }).click()
+  await page.getByRole('button', { name: /Перевірка/ }).click()
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+
+  await page.getByRole('button', { name: /Шукаємо найбільше кратне/ }).click()
+  await page.getByRole('button', { name: /Знаходимо остачу/ }).click()
+  await page.getByRole('button', { name: /Перевіряємо/ }).click()
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+
+  await expect(page.getByRole('heading', { name: 'Знайди остачу' })).toBeVisible()
+  await expect(page.getByText('Яка остача від ділення 47 на 6?')).toBeVisible()
 })

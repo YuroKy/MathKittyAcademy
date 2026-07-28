@@ -144,6 +144,7 @@ export interface ExerciseInstance {
   skillIds: string[]
   difficulty: 1 | 2 | 3 | 4 | 5
   kind: ExerciseKind
+  title?: string
   prompt: string
   expectedAnswer: string
   hints: string[]
@@ -160,13 +161,29 @@ export interface TopicPreview {
   challengeLabel: string
 }
 
-export interface PilotLessonContent {
-  topicId: 'natural-numbers' | 'fraction-meaning'
+export interface LessonExerciseTemplate {
+  templateId: string
+  skillIds: string[]
+  difficulty: 1 | 2 | 3 | 4 | 5
+  kind: Exclude<ExerciseKind, 'singleChoice'>
+  title: string
+  prompt: string
+  expectedAnswer: string
+  hints: string[]
+  solutionSteps: string[]
+}
+
+export interface FullLessonContent {
+  topicId: string
+  preview: TopicPreview
   introTitle: string
   introText: string
   mascotMessage: string
-  interactionKind: 'groupingBoard' | 'fractionBar'
+  interactionKind: 'groupingBoard' | 'fractionBar' | 'conceptCards'
+  explorationTitle: string
+  explorationItems: Array<{ label: string; content: string }>
   guidedTitle: string
   guidedSteps: string[]
   summaryText: string
+  exercises: LessonExerciseTemplate[]
 }

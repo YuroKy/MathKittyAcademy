@@ -2,6 +2,7 @@
 const props = defineProps<{
   items: Array<{ label: string; content: string }>
   modelValue: number[]
+  title?: string
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +21,7 @@ function reveal(index: number): void {
 <template>
   <section class="interaction-card tap-reveal" aria-labelledby="tap-reveal-title">
     <span class="interaction-card__label">Досліди ідею</span>
-    <h2 id="tap-reveal-title">Відкрий три підказки теми</h2>
+    <h2 id="tap-reveal-title">{{ title ?? 'Відкрий три підказки теми' }}</h2>
     <div class="tap-reveal__grid">
       <button
         v-for="(item, index) in items"
