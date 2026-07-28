@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
+import ContentTags from '@/components/learning/ContentTags.vue'
 import FractionBar from '@/components/learning/FractionBar.vue'
 import GroupingBoard from '@/components/learning/GroupingBoard.vue'
 import GuidedStepBuilder from '@/components/learning/GuidedStepBuilder.vue'
@@ -360,6 +361,12 @@ async function nextExercise(): Promise<void> {
           {{ topic?.title ?? 'Урок' }}
           <small v-if="previewOnly">· коротке прев’ю</small>
         </span>
+        <ContentTags
+          class="lesson-header__tags"
+          :tags="topic?.tags ?? []"
+          :grade-levels="topic?.gradeLevels ?? []"
+          compact
+        />
         <ProgressBar :value="overallProgress" label="Прогрес уроку" />
       </div>
       <span class="lesson-time">≈ {{ previewOnly ? 3 : topic?.estimatedMinutes ?? 10 }} хв</span>

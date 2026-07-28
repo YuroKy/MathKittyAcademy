@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
+import ContentTags from '@/components/learning/ContentTags.vue'
 import {
   atlasLocations,
   atlasTopicCount,
@@ -96,7 +97,17 @@ const searchResults = computed<TopicSearchResult[]>(() => {
   return atlasLocations
     .flatMap((location) =>
       location.topics
-        .filter((topic) => topic.title.toLocaleLowerCase('uk').includes(query))
+        .filter((topic) => {
+          const liveTopic = topic.liveTopicId ? findTopic(topic.liveTopicId) : undefined
+          const searchText = [
+            topic.title,
+            ...(liveTopic?.tags ?? []),
+            ...(liveTopic?.gradeLevels.map((grade) => `${grade} клас`) ?? []),
+          ]
+            .join(' ')
+            .toLocaleLowerCase('uk')
+          return searchText.includes(query)
+        })
         .map((topic) => ({ location, topic })),
     )
     .slice(0, 12)
@@ -179,7 +190,7 @@ function openAtlasTopic(topic: AtlasTopic): void {
 function selectSearchResult(result: TopicSearchResult): void {
   searchQuery.value = ''
   selectLocation(result.location)
-  selectedAtlasTopic.value = result.topic
+  openAtlasTopic(result.topic)
 }
 
 function launchSelected(preview = false): void {
@@ -432,6 +443,11 @@ function launchSelected(preview = false): void {
           {{ selectedTopic.title }}
         </h3>
         <p>{{ selectedTopic.shortDescription }}</p>
+        <ContentTags
+          class="topic-modal__tags"
+          :tags="selectedTopic.tags"
+          :grade-levels="selectedTopic.gradeLevels"
+        />
 
         <div class="topic-modal__facts">
           <span><AppIcon name="clock" /> {{ selectedTopic.estimatedMinutes }} хв</span>

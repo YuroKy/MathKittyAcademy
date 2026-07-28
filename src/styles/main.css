@@ -4174,6 +4174,48 @@ p {
   background: radial-gradient(ellipse, #fff 0 45%, transparent 47%);
 }
 
+.content-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.content-tag {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid;
+  border-radius: 99px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.content-tag--grade {
+  border-color: #e5c36d;
+  color: #76521d;
+  background: #fff0bf;
+  box-shadow: 0 2px 0 #edd38f;
+}
+
+.content-tag--topic {
+  border-color: #e8b8ce;
+  color: #9e3767;
+  background: #fff0f6;
+}
+
+.content-tags--compact {
+  gap: 5px;
+}
+
+.content-tags--compact .content-tag {
+  min-height: 21px;
+  padding: 3px 7px;
+  font-size: 0.56rem;
+}
+
 .map-zone--pre-algebra .zone-decoration {
   height: 100px;
   border-radius: 12px 12px 0 0;
@@ -4285,6 +4327,11 @@ p {
 .topic-modal > p {
   max-width: 410px;
   margin: 0 auto 20px;
+}
+
+.topic-modal__tags {
+  justify-content: center;
+  margin: -7px 0 20px;
 }
 
 .status-chip {
@@ -5314,6 +5361,10 @@ p {
   color: #62324c;
   font-family: Georgia, serif;
   font-size: 0.95rem;
+}
+
+.lesson-header__tags {
+  margin-top: 1px;
 }
 
 .lesson-card {

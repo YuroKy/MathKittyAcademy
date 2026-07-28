@@ -1,4 +1,5 @@
 export type DailyGoalMinutes = 10 | 15 | 20
+export type SchoolGrade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
 export type TopicStatus =
   | 'recommended'
   | 'ready'
@@ -127,6 +128,8 @@ export interface CurriculumTopic {
   slug: string
   title: string
   shortDescription: string
+  tags: string[]
+  gradeLevels: SchoolGrade[]
   groupId: string
   prerequisiteTopicIds: string[]
   skillIds: string[]
