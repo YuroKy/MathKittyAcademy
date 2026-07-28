@@ -21,10 +21,12 @@ import {
 } from '@/domain/learning/prerequisites'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { CurriculumTopic, TopicProgress } from '@/types/domain'
+import type { CurriculumTopic, SchoolGrade, TopicProgress } from '@/types/domain'
 
 type RoomStatus = TopicProgress['status']
 type AtlasTopicStatus = RoomStatus | 'planned'
+type AtlasGrade = 5 | 6 | 7 | 8 | 9
+type AtlasGradeFilter = AtlasGrade | 'all'
 
 interface MapRoom {
   topic: CurriculumTopic
@@ -37,22 +39,104 @@ interface TopicSearchResult {
   topic: AtlasTopic
 }
 
+interface AtlasGradeCategory {
+  grade: AtlasGrade
+  label: string
+  description: string
+  accent: string
+  soft: string
+  dark: string
+}
+
+const atlasGradeCategories: AtlasGradeCategory[] = [
+  {
+    grade: 5,
+    label: '5 клас',
+    description: 'Математичні основи',
+    accent: '#3e9b83',
+    soft: '#e4f7f1',
+    dark: '#246d5b',
+  },
+  {
+    grade: 6,
+    label: '6 клас',
+    description: 'Дроби й відношення',
+    accent: '#5579cf',
+    soft: '#eaf0ff',
+    dark: '#3855a1',
+  },
+  {
+    grade: 7,
+    label: '7 клас',
+    description: 'Алгебра й доведення',
+    accent: '#8a63c7',
+    soft: '#f1eafc',
+    dark: '#614198',
+  },
+  {
+    grade: 8,
+    label: '8 клас',
+    description: 'Функції та геометрія',
+    accent: '#d77843',
+    soft: '#fff0e7',
+    dark: '#a54e24',
+  },
+  {
+    grade: 9,
+    label: '9 клас',
+    description: 'Системи й імовірність',
+    accent: '#ca557f',
+    soft: '#fdeaf1',
+    dark: '#933653',
+  },
+]
+
+const atlasDefaultGradeStyle: Record<string, string> = {
+  '--grade-accent': '#da4f88',
+  '--grade-soft': '#fff1f7',
+  '--grade-dark': '#b83e72',
+}
+
 const router = useRouter()
 const profileStore = useProfileStore()
 const firstAtlasLocation = atlasLocations[0]!
+const topicGradesById = new Map(
+  curriculumTopics.map((topic) => [topic.id, topic.gradeLevels] as const),
+)
 const progress = ref<TopicProgress[]>([])
 const selectedTopic = ref<CurriculumTopic>()
 const selectedAtlasTopic = ref<AtlasTopic>()
 const selectedLocationId = ref(firstAtlasLocation.id)
+const selectedGrade = ref<AtlasGradeFilter>('all')
 const searchQuery = ref('')
 const locationPanel = ref<HTMLElement>()
 
 const progressMap = computed(() => new Map(progress.value.map((entry) => [entry.topicId, entry])))
 const recommendation = computed(() => recommendNextTopic(curriculumTopics, progress.value))
+const visibleLocations = computed(() =>
+  selectedGrade.value === 'all'
+    ? atlasLocations
+    : atlasLocations.filter((location) =>
+        location.topics.some((topic) => topicMatchesGrade(topic, selectedGrade.value)),
+      ),
+)
 const selectedLocation = computed(
   () =>
-    atlasLocations.find((location) => location.id === selectedLocationId.value) ??
+    visibleLocations.value.find((location) => location.id === selectedLocationId.value) ??
+    visibleLocations.value[0] ??
     firstAtlasLocation,
+)
+const visibleLocationTopics = computed(() =>
+  selectedLocation.value.topics.filter((topic) => topicMatchesGrade(topic)),
+)
+const selectedGradeCategory = computed(() =>
+  selectedGrade.value === 'all'
+    ? undefined
+    : atlasGradeCategories.find((category) => category.grade === selectedGrade.value),
+)
+const selectedLocationPosition = computed(
+  () =>
+    visibleLocations.value.findIndex((location) => location.id === selectedLocation.value.id) + 1,
 )
 
 const rooms = computed<MapRoom[]>(() =>
@@ -99,6 +183,7 @@ const searchResults = computed<TopicSearchResult[]>(() => {
       location.topics
         .filter((topic) => {
           const liveTopic = topic.liveTopicId ? findTopic(topic.liveTopicId) : undefined
+          if (!topicMatchesGrade(topic)) return false
           const searchText = [
             topic.title,
             ...(liveTopic?.tags ?? []),
@@ -123,6 +208,11 @@ const statusLabels: Record<AtlasTopicStatus, string> = {
   planned: 'На маршруті',
 }
 
+const gradeContextStyle = computed<Record<string, string>>(() => {
+  const category = selectedGradeCategory.value
+  return category ? gradeStyle(category.grade) : atlasDefaultGradeStyle
+})
+
 onMounted(async () => {
   const profileId = profileStore.activeProfile?.id
   if (profileId) progress.value = await learningRepository.listTopicProgress(profileId)
@@ -141,18 +231,66 @@ function locationStyle(location: AtlasLocation): Record<string, string> {
   }
 }
 
+function gradeStyle(grade: AtlasGrade): Record<string, string> {
+  const category = atlasGradeCategories.find((entry) => entry.grade === grade)
+  return {
+    '--grade-accent': category?.accent ?? '#da4f88',
+    '--grade-soft': category?.soft ?? '#fff1f7',
+    '--grade-dark': category?.dark ?? '#b83e72',
+  }
+}
+
+function topicGradeLevels(topic: AtlasTopic): AtlasGrade[] {
+  const grades: SchoolGrade[] = topic.liveTopicId
+    ? (topicGradesById.get(topic.liveTopicId) ?? [])
+    : []
+
+  return grades.filter((grade): grade is AtlasGrade => grade >= 5 && grade <= 9)
+}
+
+function topicMatchesGrade(
+  topic: AtlasTopic,
+  grade: AtlasGradeFilter = selectedGrade.value,
+): boolean {
+  return grade === 'all' || topicGradeLevels(topic).includes(grade)
+}
+
+function topicGradeStyle(topic: AtlasTopic): Record<string, string> {
+  const grades = topicGradeLevels(topic)
+  const highlightedGrade =
+    selectedGrade.value !== 'all' && grades.includes(selectedGrade.value)
+      ? selectedGrade.value
+      : grades[0]
+
+  return highlightedGrade ? gradeStyle(highlightedGrade as AtlasGrade) : {}
+}
+
+function locationGradeLevels(location: AtlasLocation): AtlasGrade[] {
+  const grades = new Set(location.topics.flatMap((topic) => topicGradeLevels(topic)))
+  return atlasGradeCategories.map((category) => category.grade).filter((grade) => grades.has(grade))
+}
+
+function gradeTopicCount(grade: AtlasGrade): number {
+  return curriculumTopics.filter((topic) => topic.gradeLevels.includes(grade)).length
+}
+
+function filteredLocationTopics(location: AtlasLocation): AtlasTopic[] {
+  return location.topics.filter((topic) => topicMatchesGrade(topic))
+}
+
 function locationRange(location: AtlasLocation): string {
-  const first = location.topics[0]?.order ?? 0
-  const last = location.topics.at(-1)?.order ?? first
+  const topics = filteredLocationTopics(location)
+  const first = topics[0]?.order ?? 0
+  const last = topics.at(-1)?.order ?? first
   return `${first}–${last}`
 }
 
 function liveLessonCount(location: AtlasLocation): number {
-  return location.topics.filter((topic) => topic.liveTopicId).length
+  return filteredLocationTopics(location).filter((topic) => topic.liveTopicId).length
 }
 
 function masteredCount(location: AtlasLocation): number {
-  return location.topics.filter(
+  return filteredLocationTopics(location).filter(
     (topic) => topic.liveTopicId && roomMap.value.get(topic.liveTopicId)?.status === 'mastered',
   ).length
 }
@@ -171,12 +309,35 @@ function selectLocation(location: AtlasLocation, scroll = true): void {
   }
 }
 
-function stepLocation(direction: -1 | 1): void {
-  const nextIndex = Math.min(
-    atlasLocations.length - 1,
-    Math.max(0, selectedLocation.value.order - 1 + direction),
+function selectGrade(grade: AtlasGradeFilter): void {
+  selectedGrade.value = grade
+  selectedAtlasTopic.value = undefined
+  selectedTopic.value = undefined
+
+  const currentLocation = atlasLocations.find(
+    (location) => location.id === selectedLocationId.value,
   )
-  selectLocation(atlasLocations[nextIndex]!, false)
+
+  if (
+    grade !== 'all' &&
+    !currentLocation?.topics.some((topic) => topicMatchesGrade(topic, grade))
+  ) {
+    selectedLocationId.value =
+      atlasLocations.find((location) =>
+        location.topics.some((topic) => topicMatchesGrade(topic, grade)),
+      )?.id ?? firstAtlasLocation.id
+  }
+}
+
+function stepLocation(direction: -1 | 1): void {
+  const currentIndex = visibleLocations.value.findIndex(
+    (location) => location.id === selectedLocation.value.id,
+  )
+  const nextIndex = Math.min(
+    visibleLocations.value.length - 1,
+    Math.max(0, currentIndex + direction),
+  )
+  selectLocation(visibleLocations.value[nextIndex]!, false)
 }
 
 function openAtlasTopic(topic: AtlasTopic): void {
@@ -203,7 +364,7 @@ function launchSelected(preview = false): void {
 </script>
 
 <template>
-  <section class="atlas-page page-shell">
+  <section class="atlas-page page-shell" :style="gradeContextStyle">
     <header class="atlas-heading">
       <div class="atlas-heading__copy">
         <span class="eyebrow">Велика математична експедиція</span>
@@ -225,6 +386,49 @@ function launchSelected(preview = false): void {
         </div>
       </div>
     </header>
+
+    <section class="atlas-grade-map" aria-labelledby="atlas-grade-map-title">
+      <header class="atlas-grade-map__heading">
+        <div>
+          <span class="eyebrow">Кольорові маршрути</span>
+          <h2 id="atlas-grade-map-title">Теми за класами</h2>
+        </div>
+        <p>Обери клас — атлас покаже його теми та локації. Кожен маршрут має свій колір.</p>
+      </header>
+
+      <div class="atlas-grade-tabs" role="group" aria-label="Фільтр тем за класом">
+        <button
+          type="button"
+          :style="atlasDefaultGradeStyle"
+          :class="{ 'atlas-grade-tab--selected': selectedGrade === 'all' }"
+          :aria-pressed="selectedGrade === 'all'"
+          @click="selectGrade('all')"
+        >
+          <span class="atlas-grade-tab__seal"><AppIcon name="map" /></span>
+          <span class="atlas-grade-tab__copy">
+            <strong>Весь атлас</strong>
+            <small>{{ atlasTopicCount }} зупинок</small>
+          </span>
+        </button>
+
+        <button
+          v-for="category in atlasGradeCategories"
+          :key="category.grade"
+          type="button"
+          :style="gradeStyle(category.grade)"
+          :class="{ 'atlas-grade-tab--selected': selectedGrade === category.grade }"
+          :aria-pressed="selectedGrade === category.grade"
+          @click="selectGrade(category.grade)"
+        >
+          <span class="atlas-grade-tab__seal">{{ category.grade }}</span>
+          <span class="atlas-grade-tab__copy">
+            <strong>{{ category.label }}</strong>
+            <small>{{ category.description }}</small>
+          </span>
+          <em>{{ gradeTopicCount(category.grade) }} тем</em>
+        </button>
+      </div>
+    </section>
 
     <div class="atlas-toolbar">
       <label class="atlas-search">
@@ -262,13 +466,18 @@ function launchSelected(preview = false): void {
     <div class="atlas-board">
       <div class="atlas-board__title">
         <span><AppIcon name="sparkles" /></span>
-        <strong>Обери локацію експедиції</strong>
+        <strong>{{
+          selectedGrade === 'all' ? 'Обери локацію експедиції' : `Локації ${selectedGrade} класу`
+        }}</strong>
         <span><AppIcon name="sparkles" /></span>
       </div>
 
-      <div class="atlas-world-route" aria-label="Локації математичного світу">
+      <div
+        :class="['atlas-world-route', { 'atlas-world-route--filtered': selectedGrade !== 'all' }]"
+        aria-label="Локації математичного світу"
+      >
         <article
-          v-for="location in atlasLocations"
+          v-for="location in visibleLocations"
           :key="location.id"
           :style="locationStyle(location)"
           :class="[
@@ -293,9 +502,22 @@ function launchSelected(preview = false): void {
               <small>Теми {{ locationRange(location) }}</small>
               <strong>{{ location.shortName }}</strong>
               <span>{{ location.subtitle }}</span>
+              <span class="atlas-location-card__grades">
+                <i
+                  v-for="grade in locationGradeLevels(location)"
+                  :key="grade"
+                  :style="gradeStyle(grade)"
+                  :class="{ 'is-highlighted': selectedGrade === grade }"
+                >
+                  {{ grade }} клас
+                </i>
+                <i v-if="locationGradeLevels(location).length === 0" class="is-future">
+                  майбутній маршрут
+                </i>
+              </span>
             </span>
             <span class="atlas-location-card__meta">
-              <em>{{ location.topics.length }} зупинок</em>
+              <em>{{ filteredLocationTopics(location).length }} зупинок</em>
               <em v-if="liveLessonCount(location)">
                 {{ masteredCount(location) }}/{{ liveLessonCount(location) }} уроків
               </em>
@@ -322,13 +544,21 @@ function launchSelected(preview = false): void {
 
         <div class="atlas-location-hero__copy">
           <span class="eyebrow"
-            >Локація {{ selectedLocation.order }} із {{ atlasLocations.length }}</span
+            >Локація {{ selectedLocationPosition }} із {{ visibleLocations.length }}</span
           >
           <h2>{{ selectedLocation.name }}</h2>
           <p>{{ selectedLocation.description }}</p>
           <div>
-            <span><AppIcon name="map" /> {{ selectedLocation.topics.length }} зупинок</span>
+            <span><AppIcon name="map" /> {{ visibleLocationTopics.length }} зупинок</span>
             <span><AppIcon name="star" /> {{ selectedLocation.landmark }}</span>
+            <span
+              v-for="grade in locationGradeLevels(selectedLocation)"
+              :key="grade"
+              class="atlas-location-hero__grade"
+              :style="gradeStyle(grade)"
+            >
+              {{ grade }} клас
+            </span>
           </div>
         </div>
 
@@ -336,16 +566,16 @@ function launchSelected(preview = false): void {
           <button
             type="button"
             aria-label="Попередня локація"
-            :disabled="selectedLocation.order === 1"
+            :disabled="selectedLocationPosition === 1"
             @click="stepLocation(-1)"
           >
             ←
           </button>
-          <span>{{ selectedLocation.order }} / {{ atlasLocations.length }}</span>
+          <span>{{ selectedLocationPosition }} / {{ visibleLocations.length }}</span>
           <button
             type="button"
             aria-label="Наступна локація"
-            :disabled="selectedLocation.order === atlasLocations.length"
+            :disabled="selectedLocationPosition === visibleLocations.length"
             @click="stepLocation(1)"
           >
             →
@@ -355,21 +585,40 @@ function launchSelected(preview = false): void {
 
       <div class="atlas-trail-heading">
         <div>
-          <span class="eyebrow">Стежка знань</span>
-          <h3>Зупинки цієї локації</h3>
+          <span class="eyebrow">
+            {{
+              selectedGrade === 'all'
+                ? 'Стежка знань'
+                : `${selectedGrade} клас · кольоровий маршрут`
+            }}
+          </span>
+          <h3>
+            {{
+              selectedGrade === 'all'
+                ? 'Зупинки цієї локації'
+                : `Теми ${selectedGrade} класу в цій локації`
+            }}
+          </h3>
         </div>
-        <p>Кожна зупинка відкриває наступну ідею, а корона завершує цілий розділ.</p>
+        <p v-if="selectedGrade === 'all'">
+          Кожна зупинка відкриває наступну ідею, а корона завершує цілий розділ.
+        </p>
+        <p v-else>
+          Показано {{ visibleLocationTopics.length }} тем. Кольоровий бейдж підказує клас.
+        </p>
       </div>
 
       <ol class="atlas-topic-trail">
         <li
-          v-for="topic in selectedLocation.topics"
+          v-for="topic in visibleLocationTopics"
           :key="topic.id"
+          :style="topicGradeStyle(topic)"
           :class="[
             `atlas-topic-stop--${atlasTopicStatus(topic)}`,
             {
               'atlas-topic-stop--boss': topic.isBoss,
               'atlas-topic-stop--selected': topic.id === selectedAtlasTopic?.id,
+              'atlas-topic-stop--graded': topicGradeLevels(topic).length > 0,
             },
           ]"
         >
@@ -386,6 +635,11 @@ function launchSelected(preview = false): void {
             <span class="atlas-topic-stop__copy">
               <small>{{ statusLabels[atlasTopicStatus(topic)] }}</small>
               <strong>{{ topic.title }}</strong>
+              <span v-if="topicGradeLevels(topic).length" class="atlas-topic-stop__grades">
+                <i v-for="grade in topicGradeLevels(topic)" :key="grade" :style="gradeStyle(grade)">
+                  {{ grade }} клас
+                </i>
+              </span>
             </span>
             <AppIcon v-if="topic.liveTopicId" class="atlas-topic-stop__arrow" name="arrow-right" />
           </button>
