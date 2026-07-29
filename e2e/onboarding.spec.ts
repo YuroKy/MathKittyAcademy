@@ -109,18 +109,26 @@ test('opens a complete flow for a newly authored grade 5 lesson', async ({ page 
     await page.getByRole('button', { name: nextLabel }).click()
   }
   await expect(page.getByRole('heading', { name: 'Ще один надійний крок' })).toBeVisible()
-  await page.goto('/progress')
-  await expect(page.getByRole('heading', { name: 'Мій прогрес' })).toBeVisible()
-  await expect(
-    page.getByRole('progressbar', { name: /40 XP · ще 60 до наступного рівня/ }),
-  ).toBeVisible()
-  await page.reload()
-  await expect(
-    page.getByRole('progressbar', { name: /40 XP · ще 60 до наступного рівня/ }),
-  ).toBeVisible()
+
+  await page.goto('/progress', { waitUntil: 'networkidle' })
+  await expect(page).toHaveURL(/\/progress$/, { timeout: 15_000 })
+  await expect(page.getByRole('heading', { name: /Мій\s*прогрес/i })).toBeVisible({
+    timeout: 15_000,
+  })
+
+  const savedXp = page.getByRole('progressbar', {
+    name: /40 XP\s*·\s*ще 60 до наступного рівня/i,
+  })
+  await expect(savedXp).toBeVisible({ timeout: 15_000 })
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await expect(page).toHaveURL(/\/progress$/, { timeout: 15_000 })
+  await expect(savedXp).toBeVisible({ timeout: 15_000 })
 })
 
-test('completes matching and step-by-step exercises in the first grade 6 wave', async ({ page }) => {
+test('completes matching and step-by-step exercises in the first grade 6 wave', async ({
+  page,
+}) => {
   await createProfile(page, 'Ірина')
   await page.getByRole('link', { name: 'Карта навчання' }).click()
   await page.getByRole('searchbox', { name: 'Знайти тему на карті' }).fill('Розклад на прості')
@@ -136,11 +144,7 @@ test('completes matching and step-by-step exercises in the first grade 6 wave', 
     await page.getByRole('button', { name: new RegExp(label) }).click()
   }
   await page.getByRole('button', { name: /Продовжити/ }).click()
-  for (const step of [
-    /60 = 6 × 10/,
-    /6 = 2 × 3/,
-    /60 = 2 × 2 × 3 × 5/,
-  ]) {
+  for (const step of [/60 = 6 × 10/, /6 = 2 × 3/, /60 = 2 × 2 × 3 × 5/]) {
     await page.getByRole('button', { name: step }).click()
   }
   await page.getByRole('button', { name: /Продовжити/ }).click()
@@ -173,9 +177,7 @@ test('exports and previews a full local backup', async ({ page }) => {
   const backupPath = await download.path()
   expect(backupPath).toBeTruthy()
 
-  await page
-    .getByLabel('Вибрати backup для відновлення')
-    .setInputFiles(backupPath!)
+  await page.getByLabel('Вибрати backup для відновлення').setInputFiles(backupPath!)
   await expect(page.getByText('1 профілів')).toBeVisible()
   await expect(page.getByText(/Імпорт повністю замінить локальні дані/)).toBeVisible()
 })
