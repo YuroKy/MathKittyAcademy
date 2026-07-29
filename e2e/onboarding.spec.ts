@@ -22,6 +22,15 @@ async function createProfile(page: Page, name: string): Promise<void> {
   await page.getByRole('button', { name: 'Увійти до академії' }).click()
 }
 
+async function gotoRoute(page: Page, path: string): Promise<void> {
+  const target =
+    process.env.VITE_ROUTER_MODE === 'hash'
+      ? `${process.env.VITE_BASE_PATH ?? '/'}#${path}`
+      : path
+
+  await page.goto(target, { waitUntil: 'networkidle' })
+}
+
 test('creates a local profile and opens the first learning recommendation', async ({ page }) => {
   await createProfile(page, 'Марта')
 
@@ -110,8 +119,8 @@ test('opens a complete flow for a newly authored grade 5 lesson', async ({ page 
   }
   await expect(page.getByRole('heading', { name: 'Ще один надійний крок' })).toBeVisible()
 
-  await page.goto('/progress', { waitUntil: 'networkidle' })
-  await expect(page).toHaveURL(/\/progress$/, { timeout: 15_000 })
+  await gotoRoute(page, '/progress')
+  await expect(page).toHaveURL(/#?\/progress$/, { timeout: 15_000 })
   await expect(page.getByRole('heading', { name: /Мій\s*прогрес/i })).toBeVisible({
     timeout: 15_000,
   })
@@ -122,7 +131,7 @@ test('opens a complete flow for a newly authored grade 5 lesson', async ({ page 
   await expect(savedXp).toBeVisible({ timeout: 15_000 })
 
   await page.reload({ waitUntil: 'networkidle' })
-  await expect(page).toHaveURL(/\/progress$/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/#?\/progress$/, { timeout: 15_000 })
   await expect(savedXp).toBeVisible({ timeout: 15_000 })
 })
 
