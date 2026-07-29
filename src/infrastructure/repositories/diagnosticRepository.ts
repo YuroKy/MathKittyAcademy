@@ -9,6 +9,7 @@ export interface DiagnosticResult {
   strong: string[]
   review: string[]
   foundation: string[]
+  confidence: Record<string, 'low' | 'medium' | 'high'>
   recommendedTopicId?: string
 }
 
@@ -72,7 +73,7 @@ class DiagnosticRepository {
   }
 
   async complete(sessionId: string): Promise<DiagnosticResult> {
-    let result: DiagnosticResult = { strong: [], review: [], foundation: [] }
+    let result: DiagnosticResult = { strong: [], review: [], foundation: [], confidence: {} }
     await db.transaction(
       'rw',
       [db.sessions, db.attempts, db.skillProgress, db.topicProgress, db.reviewItems, db.profiles],
@@ -87,8 +88,19 @@ class DiagnosticRepository {
         const now = new Date()
         const nowIso = now.toISOString()
         result = classify(attempts)
+        const nonDiagnosticSessionIds = new Set(
+          (await db.sessions.where('profileId').equals(session.profileId).toArray())
+            .filter((entry) => entry.type !== 'diagnostic')
+            .map((entry) => entry.id),
+        )
+        const previousAttempts = await db.attempts
+          .where('profileId')
+          .equals(session.profileId)
+          .filter((attempt) => nonDiagnosticSessionIds.has(attempt.sessionId))
+          .toArray()
         for (const definition of diagnosticDefinitions) {
           const skillAttempts = attempts.filter((attempt) => attempt.skillIds.includes(definition.skillId))
+          const existing = await db.skillProgress.get([session.profileId, definition.skillId])
           let mastery = 0
           for (const attempt of skillAttempts) {
             mastery = updateMastery(mastery, {
@@ -99,13 +111,21 @@ class DiagnosticRepository {
           }
           if (skillAttempts.length && skillAttempts.every((attempt) => attempt.isCorrect)) mastery = Math.max(80, mastery)
           else if (skillAttempts.some((attempt) => attempt.isCorrect)) mastery = Math.max(45, mastery)
+          const hasConfirmedMastery = previousAttempts.some((attempt) =>
+            attempt.skillIds.includes(definition.skillId),
+          )
+          if (hasConfirmedMastery) mastery = Math.max(existing?.mastery ?? 0, mastery)
           await db.skillProgress.put({
             profileId: session.profileId,
             skillId: definition.skillId,
             mastery,
-            attempts: skillAttempts.length,
-            correctAttempts: skillAttempts.filter((attempt) => attempt.isCorrect).length,
-            hintedCorrectAttempts: skillAttempts.filter((attempt) => attempt.isCorrect && attempt.hintLevelUsed > 0).length,
+            attempts: (existing?.attempts ?? 0) + skillAttempts.length,
+            correctAttempts:
+              (existing?.correctAttempts ?? 0) +
+              skillAttempts.filter((attempt) => attempt.isCorrect).length,
+            hintedCorrectAttempts:
+              (existing?.hintedCorrectAttempts ?? 0) +
+              skillAttempts.filter((attempt) => attempt.isCorrect && attempt.hintLevelUsed > 0).length,
             lastPracticedAt: nowIso,
           })
           const topic: TopicProgress = {
@@ -151,10 +171,16 @@ class DiagnosticRepository {
 }
 
 function classify(attempts: ExerciseAttempt[]): DiagnosticResult {
-  const result: DiagnosticResult = { strong: [], review: [], foundation: [] }
+  const result: DiagnosticResult = { strong: [], review: [], foundation: [], confidence: {} }
   for (const definition of diagnosticDefinitions) {
     const relevant = attempts.filter((attempt) => attempt.skillIds.includes(definition.skillId))
     const correct = relevant.filter((attempt) => attempt.isCorrect).length
+    result.confidence[definition.skillId] =
+      relevant.length >= 2 && (correct === 0 || correct === relevant.length)
+        ? 'high'
+        : relevant.length >= 1 && (correct === 0 || correct === relevant.length)
+          ? 'medium'
+          : 'low'
     if (relevant.length >= 1 && correct === relevant.length) result.strong.push(definition.skillId)
     else if (correct > 0) result.review.push(definition.skillId)
     else result.foundation.push(definition.skillId)

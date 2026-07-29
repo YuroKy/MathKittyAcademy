@@ -30,13 +30,21 @@ beforeEach(async () => {
 
 describe('daily activity and streak', () => {
   it('awards a daily goal once and uses one freeze for one missed day', async () => {
-    for (let index = 0; index < 10; index += 1) {
-      await activityRepository.addActiveSeconds('profile', 60, new Date(2026, 6, 27, 12))
+    for (let index = 0; index < 20; index += 1) {
+      await activityRepository.addActiveSeconds(
+        'profile',
+        30,
+        new Date(2026, 6, 27, 12, 0, index * 30),
+      )
     }
-    for (let index = 0; index < 10; index += 1) {
-      await activityRepository.addActiveSeconds('profile', 60, new Date(2026, 6, 29, 12))
+    for (let index = 0; index < 20; index += 1) {
+      await activityRepository.addActiveSeconds(
+        'profile',
+        30,
+        new Date(2026, 6, 29, 12, 0, index * 30),
+      )
     }
-    await activityRepository.addActiveSeconds('profile', 60, new Date(2026, 6, 29, 13))
+    await activityRepository.addActiveSeconds('profile', 30, new Date(2026, 6, 29, 12))
 
     const gamification = await db.gamification.get('profile')
     expect(gamification?.xp).toBe(30)

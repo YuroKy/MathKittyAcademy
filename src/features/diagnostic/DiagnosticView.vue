@@ -3,18 +3,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
+import ExerciseRenderer from '@/components/exercises/ExerciseRenderer.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { useActivityTracker } from '@/composables/useActivityTracker'
+import { useExerciseSubmission } from '@/composables/useExerciseSubmission'
 import { diagnosticDefinitions } from '@/content/diagnostic/diagnosticExercises'
-import { validateExerciseAnswer } from '@/domain/exercises/validateAnswer'
+import { isAnswerEmpty } from '@/domain/exercises/validateAnswer'
 import {
   diagnosticRepository,
   type DiagnosticResult,
 } from '@/infrastructure/repositories/diagnosticRepository'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { ExerciseInstance, LearningSession } from '@/types/domain'
+import type { ExerciseAnswer, ExerciseInstance, LearningSession } from '@/types/domain'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -22,12 +24,16 @@ useActivityTracker(() => profileStore.activeProfile?.id)
 const session = ref<LearningSession>()
 const exercises = ref<ExerciseInstance[]>([])
 const index = ref(0)
-const answer = ref('')
+const answer = ref<ExerciseAnswer>('')
 const feedback = ref<'correct' | 'incorrect' | 'unknown' | ''>('')
 const result = ref<DiagnosticResult>()
 const loading = ref(true)
-const saving = ref(false)
-const errorMessage = ref('')
+const {
+  saving,
+  errorMessage,
+  submit: submitExercise,
+  reset: resetSubmission,
+} = useExerciseSubmission()
 const started = ref(false)
 const exercise = computed(() => exercises.value[index.value])
 const progress = computed(() => ((index.value + (feedback.value ? 1 : 0)) / Math.max(exercises.value.length, 1)) * 100)
@@ -40,6 +46,8 @@ onMounted(async () => {
     session.value = active.session
     exercises.value = active.exercises
     index.value = active.session.currentExerciseIndex ?? 0
+    answer.value =
+      active.session.answerDrafts?.[active.exercises[index.value]?.id ?? ''] ?? ''
     started.value = index.value > 0
   } catch {
     errorMessage.value = 'Не вдалося відкрити діагностику. Спробуй ще раз.'
@@ -48,32 +56,29 @@ onMounted(async () => {
   }
 })
 
+function updateAnswer(value: ExerciseAnswer): void {
+  answer.value = value
+  if (session.value && exercise.value) {
+    void learningRepository.saveAnswerDraft(session.value.id, exercise.value.id, value)
+  }
+}
+
 async function submit(unknown = false): Promise<void> {
   const current = exercise.value
   const active = session.value
   const profileId = profileStore.activeProfile?.id
-  if (!current || !active || !profileId || saving.value || (!unknown && !answer.value.trim())) return
-  saving.value = true
-  try {
-    const correct = !unknown && validateExerciseAnswer(current, answer.value)
-    await learningRepository.recordAttempt({
-      profileId,
-      sessionId: active.id,
-      exerciseId: current.id,
-      templateId: current.templateId,
-      seed: current.seed,
-      topicId: current.topicId,
-      skillIds: current.skillIds,
-      prompt: current.prompt,
-      expectedAnswer: current.expectedAnswer,
-      submittedAnswer: unknown ? 'Не знаю' : answer.value,
-      normalizedAnswer: unknown ? '' : answer.value.trim().replace(',', '.'),
-      isCorrect: correct,
-      hintLevelUsed: unknown ? 2 : 0,
-    })
-    feedback.value = unknown ? 'unknown' : correct ? 'correct' : 'incorrect'
-  } finally {
-    saving.value = false
+  if (!current || !active || !profileId) return
+  const savedFeedback = await submitExercise({
+    profileId,
+    sessionId: active.id,
+    exercise: current,
+    answer: answer.value,
+    hintLevel: 0,
+    reveal: unknown,
+  })
+  if (savedFeedback) {
+    feedback.value =
+      savedFeedback === 'revealed' ? 'unknown' : savedFeedback
   }
 }
 
@@ -88,6 +93,7 @@ async function next(): Promise<void> {
     index.value = nextIndex
     answer.value = ''
     feedback.value = ''
+    resetSubmission()
     return
   }
   saving.value = true
@@ -151,8 +157,13 @@ async function skipDiagnostic(): Promise<void> {
         <p>Це не контрольна. Відповідай як виходить, а якщо не знаєш — так і скажи.</p>
         <h2>{{ exercise.prompt }}</h2>
         <form class="answer-form" @submit.prevent="submit(false)">
-          <input v-model="answer" inputmode="decimal" :disabled="Boolean(feedback)" aria-label="Відповідь" />
-          <BaseButton v-if="!feedback" type="submit" :disabled="saving">Відповісти</BaseButton>
+          <ExerciseRenderer
+            :model-value="answer"
+            :exercise="exercise"
+            :disabled="Boolean(feedback)"
+            @update:model-value="updateAnswer"
+          />
+          <BaseButton v-if="!feedback" type="submit" :disabled="saving || isAnswerEmpty(answer)">Відповісти</BaseButton>
         </form>
         <BaseButton v-if="!feedback" variant="secondary" @click="submit(true)">Не знаю</BaseButton>
         <p v-if="feedback === 'correct'" class="feedback feedback--correct" aria-live="polite">Відповідь записано.</p>

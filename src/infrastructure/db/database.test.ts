@@ -10,7 +10,7 @@ afterEach(async () => {
 })
 
 describe('database migrations', () => {
-  it('migrates v2 attempts and creates the activity table without losing data', async () => {
+  it('migrates v2 attempts and creates v4 activity tables without losing data', async () => {
     const name = `math-kitty-migration-${crypto.randomUUID()}`
     names.push(name)
     const legacy = new Dexie(name)
@@ -46,6 +46,7 @@ describe('database migrations', () => {
     await migrated.open()
     expect((await migrated.attempts.get('old-attempt'))?.topicId).toBe('unknown')
     expect(migrated.tables.some((table) => table.name === 'activityDays')).toBe(true)
+    expect(migrated.tables.some((table) => table.name === 'activityPulses')).toBe(true)
     migrated.close()
   })
 })

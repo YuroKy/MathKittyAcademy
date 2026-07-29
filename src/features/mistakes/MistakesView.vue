@@ -7,6 +7,10 @@ import { useDialogFocus } from '@/composables/useDialogFocus'
 import { curriculumTopics } from '@/content/curriculum/topics'
 import { areEquivalentAnswers } from '@/domain/exercises/rational'
 import {
+  generateSimilarMistakeExercise,
+  type SimilarMistakeExercise,
+} from '@/domain/exercises/similarMistake'
+import {
   mistakeRepository,
   type MistakeDetails,
 } from '@/infrastructure/repositories/mistakeRepository'
@@ -21,6 +25,7 @@ const typeFilter = ref<'all' | ErrorType>('all')
 const selected = ref<MistakeDetails>()
 const retryAnswer = ref('')
 const retryFeedback = ref('')
+const similarExercise = ref<SimilarMistakeExercise>()
 const loading = ref(true)
 const retryDialog = ref<HTMLElement>()
 useDialogFocus(
@@ -75,8 +80,9 @@ async function load(): Promise<void> {
 
 async function checkRetry(): Promise<void> {
   const profileId = profileStore.activeProfile?.id
-  const expected = selected.value?.attempt?.expectedAnswer
-  if (!profileId || !selected.value || !expected || !retryAnswer.value.trim()) return
+  const generated = similarExercise.value
+  const expected = generated?.expectedAnswer
+  if (!profileId || !selected.value || !generated || !expected || !retryAnswer.value.trim()) return
   if (!areEquivalentAnswers(retryAnswer.value, expected)) {
     retryFeedback.value = 'Ще не збіглося. Переглянь правильну відповідь і спробуй знову.'
     return
@@ -88,10 +94,10 @@ async function checkRetry(): Promise<void> {
     sessionId: source.sessionId,
     exerciseId: `${source.exerciseId}:retry:${selected.value.mistake.id}`,
     templateId: source.templateId,
-    seed: `${source.seed}:retry:${Date.now()}`,
+    seed: generated.seed,
     topicId: source.topicId ?? selected.value.mistake.topicId,
     skillIds: source.skillIds,
-    prompt: source.prompt ?? '',
+    prompt: generated.prompt,
     expectedAnswer: expected,
     submittedAnswer: retryAnswer.value,
     normalizedAnswer: retryAnswer.value.trim().replace(',', '.'),
@@ -101,6 +107,19 @@ async function checkRetry(): Promise<void> {
   await mistakeRepository.resolve(profileId, selected.value.mistake.id, resolvedAttempt.id)
   retryFeedback.value = 'Розплутано! Помилку позначено виправленою.'
   await load()
+}
+
+function openRetry(item: MistakeDetails): void {
+  if (!item.attempt) return
+  const generated = generateSimilarMistakeExercise(item.attempt)
+  if (!generated) {
+    retryFeedback.value = 'Для цієї старої вправи не вдалося безпечно створити новий приклад.'
+    return
+  }
+  selected.value = item
+  similarExercise.value = generated
+  retryAnswer.value = ''
+  retryFeedback.value = ''
 }
 
 function topicTitle(topicId: string): string {
@@ -142,7 +161,7 @@ function topicTitle(topicId: string): string {
           <dt>Правильна відповідь</dt><dd>{{ item.attempt?.expectedAnswer ?? '—' }}</dd>
         </dl>
         <small>{{ new Date(item.mistake.createdAt).toLocaleString('uk-UA') }}</small>
-        <BaseButton v-if="!item.mistake.resolved && item.attempt?.expectedAnswer" @click="selected = item; retryAnswer = ''; retryFeedback = ''">
+        <BaseButton v-if="!item.mistake.resolved && item.attempt?.expectedAnswer" @click="openRetry(item)">
           Спробувати схоже завдання
         </BaseButton>
       </article>
@@ -151,7 +170,7 @@ function topicTitle(topicId: string): string {
       <aside ref="retryDialog" class="collection-modal" role="dialog" aria-modal="true" aria-labelledby="retry-title">
         <button class="icon-button collection-modal__close" aria-label="Закрити" @click="selected = undefined">×</button>
         <h2 id="retry-title">Розплутай крок</h2>
-        <p>{{ selected.attempt?.prompt }}</p>
+        <p>{{ similarExercise?.prompt }}</p>
         <input v-model="retryAnswer" inputmode="decimal" aria-label="Нова відповідь" />
         <p v-if="retryFeedback" aria-live="polite">{{ retryFeedback }}</p>
         <BaseButton @click="checkRetry">Перевірити</BaseButton>

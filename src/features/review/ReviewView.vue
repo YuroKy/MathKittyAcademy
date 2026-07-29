@@ -3,14 +3,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
+import ExerciseRenderer from '@/components/exercises/ExerciseRenderer.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { useActivityTracker } from '@/composables/useActivityTracker'
-import { validateExerciseAnswer } from '@/domain/exercises/validateAnswer'
+import { useExerciseSubmission } from '@/composables/useExerciseSubmission'
+import { isAnswerEmpty } from '@/domain/exercises/validateAnswer'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { reviewRepository } from '@/infrastructure/repositories/reviewRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { ExerciseInstance, LearningSession } from '@/types/domain'
+import type { ExerciseAnswer, ExerciseInstance, LearningSession } from '@/types/domain'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -18,13 +20,17 @@ useActivityTracker(() => profileStore.activeProfile?.id)
 const session = ref<LearningSession>()
 const exercises = ref<ExerciseInstance[]>([])
 const index = ref(0)
-const answer = ref('')
-const feedback = ref<'correct' | 'incorrect' | 'revealed' | ''>('')
+const answer = ref<ExerciseAnswer>('')
 const hintLevel = ref(0)
 const loading = ref(true)
-const saving = ref(false)
 const completed = ref(false)
-const errorMessage = ref('')
+const {
+  feedback,
+  saving,
+  errorMessage,
+  submit: submitExercise,
+  reset: resetSubmission,
+} = useExerciseSubmission()
 const exercise = computed(() => exercises.value[index.value])
 const progress = computed(() => ((index.value + (feedback.value ? 1 : 0)) / Math.max(exercises.value.length, 1)) * 100)
 
@@ -36,6 +42,8 @@ onMounted(async () => {
     session.value = result.session
     exercises.value = result.exercises
     index.value = result.session.currentExerciseIndex ?? 0
+    answer.value =
+      result.session.answerDrafts?.[result.exercises[index.value]?.id ?? ''] ?? ''
   } catch {
     errorMessage.value = 'Не вдалося відкрити чергу повторення.'
   } finally {
@@ -43,33 +51,26 @@ onMounted(async () => {
   }
 })
 
+function updateAnswer(value: ExerciseAnswer): void {
+  answer.value = value
+  if (session.value && exercise.value) {
+    void learningRepository.saveAnswerDraft(session.value.id, exercise.value.id, value)
+  }
+}
+
 async function submit(reveal = false): Promise<void> {
   const current = exercise.value
   const active = session.value
   const profileId = profileStore.activeProfile?.id
-  if (!current || !active || !profileId || saving.value || (!reveal && !answer.value.trim())) return
-  saving.value = true
-  try {
-    const correct = !reveal && validateExerciseAnswer(current, answer.value)
-    await learningRepository.recordAttempt({
-      profileId,
-      sessionId: active.id,
-      exerciseId: current.id,
-      templateId: current.templateId,
-      seed: current.seed,
-      topicId: current.topicId,
-      skillIds: current.skillIds,
-      prompt: current.prompt,
-      expectedAnswer: current.expectedAnswer,
-      submittedAnswer: reveal ? 'Не знаю' : answer.value,
-      normalizedAnswer: reveal ? '' : answer.value.trim().replace(',', '.'),
-      isCorrect: correct,
-      hintLevelUsed: reveal ? Math.max(2, hintLevel.value) : hintLevel.value,
-    })
-    feedback.value = reveal ? 'revealed' : correct ? 'correct' : 'incorrect'
-  } finally {
-    saving.value = false
-  }
+  if (!current || !active || !profileId) return
+  await submitExercise({
+    profileId,
+    sessionId: active.id,
+    exercise: current,
+    answer: answer.value,
+    hintLevel: hintLevel.value,
+    reveal,
+  })
 }
 
 async function next(): Promise<void> {
@@ -77,7 +78,7 @@ async function next(): Promise<void> {
   if (index.value < exercises.value.length - 1) {
     index.value += 1
     answer.value = ''
-    feedback.value = ''
+    resetSubmission()
     hintLevel.value = 0
     await reviewRepository.savePosition(session.value, index.value)
     return
@@ -119,14 +120,14 @@ async function next(): Promise<void> {
       <article class="practice-card">
         <p class="exercise-prompt">{{ exercise.prompt }}</p>
         <form class="answer-form" @submit.prevent="submit(false)">
-          <input
-            v-model="answer"
-            inputmode="decimal"
+          <ExerciseRenderer
+            :model-value="answer"
+            :exercise="exercise"
             :disabled="feedback === 'correct' || feedback === 'revealed'"
-            :aria-invalid="feedback === 'incorrect'"
-            aria-label="Відповідь"
+            :invalid="feedback === 'incorrect'"
+            @update:model-value="updateAnswer"
           />
-          <BaseButton v-if="feedback !== 'correct' && feedback !== 'revealed'" type="submit" :disabled="saving">
+          <BaseButton v-if="feedback !== 'correct' && feedback !== 'revealed'" type="submit" :disabled="saving || isAnswerEmpty(answer)">
             Перевірити
           </BaseButton>
         </form>

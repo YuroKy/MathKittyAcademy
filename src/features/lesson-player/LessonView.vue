@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
+import ExerciseRenderer from '@/components/exercises/ExerciseRenderer.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
 import ContentTags from '@/components/learning/ContentTags.vue'
 import FractionBar from '@/components/learning/FractionBar.vue'
@@ -12,14 +13,15 @@ import PredictionChoice from '@/components/learning/PredictionChoice.vue'
 import TapReveal from '@/components/learning/TapReveal.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { useActivityTracker } from '@/composables/useActivityTracker'
+import { useExerciseSubmission } from '@/composables/useExerciseSubmission'
 import { findTopic } from '@/content/curriculum/topics'
 import { findFullLesson } from '@/content/lessons/fullLessons'
 import { findTopicPreview } from '@/content/lessons/topicPreviews'
 import { buildLessonExerciseSet } from '@/domain/exercises/generator'
-import { validateExerciseAnswer } from '@/domain/exercises/validateAnswer'
+import { isAnswerEmpty } from '@/domain/exercises/validateAnswer'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { ExerciseInstance, LearningSession } from '@/types/domain'
+import type { ExerciseAnswer, ExerciseInstance, LearningSession } from '@/types/domain'
 
 type LessonStage =
   'introduction' | 'prediction' | 'explore' | 'guided-example' | 'practice' | 'summary'
@@ -57,12 +59,16 @@ const session = ref<LearningSession>()
 const stage = ref<LessonStage>('introduction')
 const exercises = ref<ExerciseInstance[]>([])
 const exerciseIndex = ref(0)
-const answer = ref('')
+const answer = ref<ExerciseAnswer>('')
 const hintLevel = ref(0)
-const feedback = ref<'correct' | 'incorrect' | 'revealed' | ''>('')
-const saving = ref(false)
+const {
+  feedback,
+  saving,
+  errorMessage,
+  submit: submitExercise,
+  reset: resetSubmission,
+} = useExerciseSubmission()
 const loading = ref(true)
-const errorMessage = ref('')
 
 const predictionIndex = ref<number>()
 const groupCounts = ref([0, 0, 0])
@@ -148,6 +154,8 @@ async function initializeFullSession(reset = false): Promise<void> {
         exercises.value.length - 1,
       )
       restoreInteractionState(session.value.interactionState)
+      answer.value =
+        session.value.answerDrafts?.[exercises.value[exerciseIndex.value]?.id ?? ''] ?? ''
     }
 
     const seeds = exercises.value.map((exercise) => exercise.seed)
@@ -232,6 +240,17 @@ function updateRevealIndexes(value: number[]): void {
   revealIndexes.value = value
 }
 
+function updateAnswer(value: ExerciseAnswer): void {
+  answer.value = value
+  if (session.value && currentExercise.value) {
+    void learningRepository.saveAnswerDraft(
+      session.value.id,
+      currentExercise.value.id,
+      value,
+    )
+  }
+}
+
 async function startFullLesson(): Promise<void> {
   if (!fullLesson.value) return
   await router.replace({ path: route.path })
@@ -250,7 +269,7 @@ function resetInteractiveState(): void {
   revealIndexes.value = []
   exerciseIndex.value = 0
   answer.value = ''
-  feedback.value = ''
+  resetSubmission()
   hintLevel.value = 0
 }
 
@@ -258,34 +277,14 @@ async function submitAnswer(): Promise<void> {
   const exercise = currentExercise.value
   const activeSession = session.value
   const profileId = profileStore.activeProfile?.id
-  if (!exercise || !activeSession || !profileId || answer.value.trim() === '' || saving.value)
-    return
-
-  saving.value = true
-  try {
-    const isCorrect = validateExerciseAnswer(exercise, answer.value)
-    await learningRepository.recordAttempt({
-      profileId,
-      sessionId: activeSession.id,
-      exerciseId: exercise.id,
-      templateId: exercise.templateId,
-      seed: exercise.seed,
-      topicId: exercise.topicId,
-      skillIds: exercise.skillIds,
-      prompt: exercise.prompt,
-      expectedAnswer: exercise.expectedAnswer,
-      submittedAnswer: answer.value,
-      normalizedAnswer: answer.value.trim().replace(',', '.'),
-      isCorrect,
-      hintLevelUsed: hintLevel.value,
-    })
-    feedback.value = isCorrect ? 'correct' : 'incorrect'
-  } catch (error) {
-    console.error('Failed to save attempt', error)
-    errorMessage.value = 'Відповідь не збереглася. Не переходь далі — спробуй ще раз.'
-  } finally {
-    saving.value = false
-  }
+  if (!exercise || !activeSession || !profileId) return
+  await submitExercise({
+    profileId,
+    sessionId: activeSession.id,
+    exercise,
+    answer: answer.value,
+    hintLevel: hintLevel.value,
+  })
 }
 
 function showHint(): void {
@@ -298,30 +297,14 @@ async function revealAnswer(): Promise<void> {
   const profileId = profileStore.activeProfile?.id
   if (!exercise || !activeSession || !profileId || saving.value) return
 
-  saving.value = true
-  try {
-    await learningRepository.recordAttempt({
-      profileId,
-      sessionId: activeSession.id,
-      exerciseId: exercise.id,
-      templateId: exercise.templateId,
-      seed: exercise.seed,
-      topicId: exercise.topicId,
-      skillIds: exercise.skillIds,
-      prompt: exercise.prompt,
-      expectedAnswer: exercise.expectedAnswer,
-      submittedAnswer: 'Не знаю',
-      normalizedAnswer: '',
-      isCorrect: false,
-      hintLevelUsed: Math.max(hintLevel.value, 2),
-    })
-    feedback.value = 'revealed'
-  } catch (error) {
-    console.error('Failed to save unknown answer', error)
-    errorMessage.value = 'Не вдалося зберегти цю спробу. Спробуй іще раз.'
-  } finally {
-    saving.value = false
-  }
+  await submitExercise({
+    profileId,
+    sessionId: activeSession.id,
+    exercise,
+    answer: answer.value,
+    hintLevel: hintLevel.value,
+    reveal: true,
+  })
 }
 
 async function nextExercise(): Promise<void> {
@@ -331,7 +314,7 @@ async function nextExercise(): Promise<void> {
     exerciseIndex.value += 1
     answer.value = ''
     hintLevel.value = 0
-    feedback.value = ''
+    resetSubmission()
     await savePosition('practice', exerciseIndex.value)
     return
   }
@@ -461,41 +444,17 @@ async function nextExercise(): Promise<void> {
           <p class="exercise-question">{{ currentExercise.prompt }}</p>
 
           <form class="answer-form" @submit.prevent="submitAnswer">
-            <div
-              v-if="currentExercise.choices?.length"
-              class="prediction-options"
-              role="group"
-              aria-label="Варіанти відповіді"
-            >
-              <button
-                v-for="choice in currentExercise.choices"
-                :key="choice"
-                type="button"
-                :aria-pressed="answer === choice"
-                :disabled="feedback === 'correct' || feedback === 'revealed'"
-                @click="answer = choice"
-              >
-                {{ choice }}
-              </button>
-            </div>
-            <label v-else class="field">
-              <span>Твоя відповідь</span>
-              <input
-                v-model="answer"
-                :inputmode="currentExercise.kind === 'fractionInput' ? 'text' : 'numeric'"
-                autocomplete="off"
-                :placeholder="
-                  currentExercise.kind === 'fractionInput' ? 'Наприклад, 3/6' : 'Введи число'
-                "
-                :aria-invalid="feedback === 'incorrect'"
-                :disabled="feedback === 'correct' || feedback === 'revealed'"
-                autofocus
-              />
-            </label>
+            <ExerciseRenderer
+              :model-value="answer"
+              :exercise="currentExercise"
+              :invalid="feedback === 'incorrect'"
+              :disabled="feedback === 'correct' || feedback === 'revealed'"
+              @update:model-value="updateAnswer"
+            />
             <BaseButton
               v-if="feedback !== 'correct' && feedback !== 'revealed'"
               type="submit"
-              :disabled="answer.trim() === '' || saving"
+              :disabled="isAnswerEmpty(answer) || saving"
             >
               Перевірити
             </BaseButton>

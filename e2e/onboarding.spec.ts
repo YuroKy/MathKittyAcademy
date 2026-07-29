@@ -120,6 +120,49 @@ test('opens a complete flow for a newly authored grade 5 lesson', async ({ page 
   ).toBeVisible()
 })
 
+test('completes matching and step-by-step exercises in the first grade 6 wave', async ({ page }) => {
+  await createProfile(page, 'Ірина')
+  await page.getByRole('link', { name: 'Карта навчання' }).click()
+  await page.getByRole('searchbox', { name: 'Знайти тему на карті' }).fill('Розклад на прості')
+  await page.getByRole('button', { name: /Розклад на прості множники/ }).click()
+  await page.getByRole('button', { name: 'Почати урок' }).click()
+
+  await expect(page).toHaveURL(/\/learn\/prime-factorization$/)
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+  await page.getByRole('button', { name: 'B 2 × 3 × 3' }).click()
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+
+  for (const label of ['Просте', 'Складене', 'Перевірка']) {
+    await page.getByRole('button', { name: new RegExp(label) }).click()
+  }
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+  for (const step of [
+    /60 = 6 × 10/,
+    /6 = 2 × 3/,
+    /60 = 2 × 2 × 3 × 5/,
+  ]) {
+    await page.getByRole('button', { name: step }).click()
+  }
+  await page.getByRole('button', { name: /Продовжити/ }).click()
+
+  await page.getByLabel('Пара для 12').selectOption({ label: '2 × 2 × 3' })
+  await page.getByLabel('Пара для 20').selectOption({ label: '2 × 2 × 5' })
+  await page.getByLabel('Пара для 45').selectOption({ label: '3 × 3 × 5' })
+  await page.getByRole('button', { name: 'Перевірити' }).click()
+  await page.getByRole('button', { name: 'Наступна вправа' }).click()
+
+  await page.getByLabel('Відповідь для кроку 1').fill('42')
+  await page.getByLabel('Відповідь для кроку 2').fill('21')
+  await page.getByLabel('Відповідь для кроку 3').fill('7')
+  await page.getByRole('button', { name: 'Перевірити' }).click()
+  await page.getByRole('button', { name: 'Наступна вправа' }).click()
+
+  await page.getByLabel('Твоя відповідь').fill('84')
+  await page.getByRole('button', { name: 'Перевірити' }).click()
+  await page.getByRole('button', { name: 'Завершити заняття' }).click()
+  await expect(page.getByRole('heading', { name: 'Ще один надійний крок' })).toBeVisible()
+})
+
 test('exports and previews a full local backup', async ({ page }) => {
   await createProfile(page, 'Дарина')
   await page.getByRole('link', { name: 'Налаштування' }).first().click()

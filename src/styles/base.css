@@ -1,0 +1,4 @@
+/* Base layer entry point.
+ * Global resets remain at the start of features.css until their selectors can be
+ * moved mechanically with screenshot baselines in a dedicated visual-only change.
+ */

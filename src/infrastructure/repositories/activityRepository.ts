@@ -1,3 +1,5 @@
+import Dexie from 'dexie'
+
 import { appConfig } from '@/content/config'
 import { calendarDayDistance, localDateKey } from '@/domain/activity/localDate'
 
@@ -7,14 +9,26 @@ class ActivityRepository {
   async addActiveSeconds(profileId: string, seconds: number, at = new Date()): Promise<void> {
     if (!Number.isFinite(seconds) || seconds <= 0) return
     const localDate = localDateKey(at)
-    await db.transaction('rw', db.activityDays, db.profiles, db.gamification, async () => {
+    const bucketStart = new Date(Math.floor(at.getTime() / 30_000) * 30_000).toISOString()
+    await db.transaction('rw', db.activityPulses, db.activityDays, db.profiles, db.gamification, async () => {
+      try {
+        await db.activityPulses.add({
+          profileId,
+          bucketStart,
+          activeSeconds: Math.min(Math.round(seconds), 30),
+          createdAt: at.toISOString(),
+        })
+      } catch (error) {
+        if (error instanceof Dexie.ConstraintError) return
+        throw error
+      }
       const [current, profile, gamification] = await Promise.all([
         db.activityDays.get([profileId, localDate]),
         db.profiles.get(profileId),
         db.gamification.get(profileId),
       ])
       if (!profile || !gamification) return
-      const activeSeconds = (current?.activeSeconds ?? 0) + Math.min(Math.round(seconds), 60)
+      const activeSeconds = (current?.activeSeconds ?? 0) + Math.min(Math.round(seconds), 30)
       let dailyGoalAwarded = current?.dailyGoalAwarded ?? false
       if (!dailyGoalAwarded && activeSeconds >= profile.dailyGoalMinutes * 60) {
         dailyGoalAwarded = true

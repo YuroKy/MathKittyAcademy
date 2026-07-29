@@ -3,7 +3,7 @@ import { buildDiagnosticExercise } from '@/content/diagnostic/diagnosticExercise
 import { fullLessons } from '@/content/lessons/fullLessons'
 import { updateMastery } from '@/domain/mastery/updateMastery'
 import { scheduleNextReview } from '@/domain/review/schedule'
-import type { ExerciseAttempt, ExerciseInstance, LearningSession } from '@/types/domain'
+import type { ExerciseAttempt, ExerciseInstance, LearningSession, ReviewItem } from '@/types/domain'
 
 import { db } from '../db/database'
 
@@ -24,12 +24,58 @@ function exerciseForSkill(skillId: string, sessionId: string, index: number): Ex
     : undefined
 }
 
+async function rankDueItems(
+  profileId: string,
+  items: ReviewItem[],
+  at: Date,
+): Promise<ReviewItem[]> {
+  const [progress, unresolved] = await Promise.all([
+    db.skillProgress.where('profileId').equals(profileId).toArray(),
+    db.mistakes
+      .where('profileId')
+      .equals(profileId)
+      .filter((entry) => !entry.resolved)
+      .toArray(),
+  ])
+  const mastery = new Map(progress.map((entry) => [entry.skillId, entry.mastery]))
+  const mistakes = new Map<string, number>()
+  for (const record of unresolved) {
+    for (const skillId of record.skillIds) {
+      mistakes.set(skillId, (mistakes.get(skillId) ?? 0) + 1)
+    }
+  }
+  const ranked = items
+    .map((item) => {
+      const overdueDays = Math.max(0, (at.getTime() - Date.parse(item.dueAt)) / 86_400_000)
+      const score =
+        overdueDays * 100 +
+        (100 - (mastery.get(item.skillId) ?? 0)) * 2 +
+        (mistakes.get(item.skillId) ?? 0) * 25
+      const topicId = exerciseForSkill(item.skillId, 'ranking', 0)?.topicId ?? item.skillId
+      return { item, score, topicId }
+    })
+    .sort((left, right) => right.score - left.score || left.item.id.localeCompare(right.item.id))
+
+  const topicCounts = new Map<string, number>()
+  return ranked
+    .filter(({ topicId }) => {
+      const count = topicCounts.get(topicId) ?? 0
+      if (count >= 2) return false
+      topicCounts.set(topicId, count + 1)
+      return true
+    })
+    .slice(0, 10)
+    .map(({ item }) => item)
+}
+
 class ReviewRepository {
   async listDue(profileId: string, at = new Date()): Promise<ExerciseInstance[]> {
-    const items = (await db.reviewItems.where('profileId').equals(profileId).toArray())
-      .filter((item) => item.dueAt <= at.toISOString())
-      .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
-      .slice(0, 10)
+    const items = await rankDueItems(
+      profileId,
+      (await db.reviewItems.where('profileId').equals(profileId).toArray())
+        .filter((item) => item.dueAt <= at.toISOString()),
+      at,
+    )
     return items
       .map((item, index) => exerciseForSkill(item.skillId, `preview-${profileId}`, index))
       .filter((item): item is ExerciseInstance => item !== undefined)
@@ -41,10 +87,13 @@ class ReviewRepository {
     ).find((session) => session.type === 'review')
     if (active) return { session: active, exercises: this.restoreExercises(active) }
 
-    const dueItems = (await db.reviewItems.where('profileId').equals(profileId).toArray())
-      .filter((item) => item.dueAt <= new Date().toISOString())
-      .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
-      .slice(0, 10)
+    const now = new Date()
+    const dueItems = await rankDueItems(
+      profileId,
+      (await db.reviewItems.where('profileId').equals(profileId).toArray())
+        .filter((item) => item.dueAt <= now.toISOString()),
+      now,
+    )
     const session: LearningSession = {
       id: crypto.randomUUID(),
       profileId,

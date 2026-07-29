@@ -60,6 +60,7 @@ export interface LearningSession {
   currentExerciseIndex?: number
   exerciseSeeds: string[]
   interactionState?: Record<string, unknown>
+  answerDrafts?: Record<string, ExerciseAnswer>
   progressState?: LessonProgressState | ReviewProgressState | DiagnosticProgressState
   earnedXp: number
 }
@@ -75,8 +76,8 @@ export interface ExerciseAttempt {
   skillIds: string[]
   prompt?: string
   expectedAnswer?: string
-  submittedAnswer: unknown
-  normalizedAnswer: unknown
+  submittedAnswer: ExerciseAnswer
+  normalizedAnswer: ExerciseAnswer
   isCorrect: boolean
   hintLevelUsed: number
   errorType?: ErrorType
@@ -137,6 +138,13 @@ export interface ActivityDay {
   updatedAt: string
 }
 
+export interface ActivityPulse {
+  profileId: string
+  bucketStart: string
+  activeSeconds: number
+  createdAt: string
+}
+
 export interface LessonProgressState {
   kind: 'lesson'
   stage: string
@@ -183,7 +191,30 @@ export type ExerciseKind =
   | 'stepByStep'
   | 'matching'
 
+export type ExerciseAnswer = string | string[] | Record<string, string>
+
+export type AnswerSpec =
+  | { kind: 'rational'; value: string }
+  | { kind: 'decimalTolerance'; value: number; tolerance: number }
+  | { kind: 'exact'; value: string; caseSensitive?: boolean }
+  | { kind: 'singleChoice'; value: string }
+  | { kind: 'multipleChoice'; values: string[] }
+  | { kind: 'matching'; pairs: Record<string, string> }
+  | { kind: 'stepByStep'; steps: Array<{ value: string; strategy?: 'rational' | 'exact' }> }
+
 export type AnswerValidationStrategy = 'rational' | 'decimalTolerance' | 'exact' | 'choice'
+
+export interface StepDefinition {
+  id: string
+  prompt: string
+  expectedAnswer: string
+  validationStrategy?: 'rational' | 'exact'
+}
+
+export interface MatchingPair {
+  left: string
+  right: string
+}
 
 export interface ErrorClassificationRule {
   type: ErrorType
@@ -202,11 +233,15 @@ export interface ExerciseInstance {
   title?: string
   prompt: string
   expectedAnswer: string
+  answerSpec?: AnswerSpec
   choices?: string[]
+  stepDefinitions?: StepDefinition[]
+  matchingPairs?: MatchingPair[]
   validationStrategy?: AnswerValidationStrategy
   tolerance?: number
   errorRules?: ErrorClassificationRule[]
   hints: string[]
+  simplerExplanation?: string
   solutionSteps: string[]
 }
 
@@ -228,11 +263,15 @@ export interface LessonExerciseTemplate {
   title: string
   prompt: string
   expectedAnswer: string
+  answerSpec?: AnswerSpec
   choices?: string[]
+  stepDefinitions?: StepDefinition[]
+  matchingPairs?: MatchingPair[]
   validationStrategy?: AnswerValidationStrategy
   tolerance?: number
   errorRules?: ErrorClassificationRule[]
   hints: string[]
+  simplerExplanation?: string
   solutionSteps: string[]
 }
 
@@ -248,5 +287,10 @@ export interface FullLessonContent {
   guidedTitle: string
   guidedSteps: string[]
   summaryText: string
+  qa?: {
+    mathApproved: boolean
+    languageApproved: boolean
+    pedagogyApproved: boolean
+  }
   exercises: LessonExerciseTemplate[]
 }

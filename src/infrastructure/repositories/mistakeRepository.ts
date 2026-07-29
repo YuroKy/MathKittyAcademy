@@ -15,9 +15,23 @@ class MistakeRepository {
   }
 
   async resolve(profileId: string, mistakeId: string, resolvedAttemptId?: string): Promise<void> {
-    await db.transaction('rw', db.mistakes, db.gamification, async () => {
+    await db.transaction('rw', db.mistakes, db.attempts, db.gamification, async () => {
       const mistake = await db.mistakes.get(mistakeId)
       if (!mistake || mistake.profileId !== profileId || mistake.resolved) return
+      const [sourceAttempt, resolvedAttempt] = await Promise.all([
+        db.attempts.get(mistake.attemptId),
+        resolvedAttemptId ? db.attempts.get(resolvedAttemptId) : undefined,
+      ])
+      if (
+        !sourceAttempt ||
+        !resolvedAttempt ||
+        !resolvedAttempt.isCorrect ||
+        resolvedAttempt.hintLevelUsed !== 0 ||
+        resolvedAttempt.seed === sourceAttempt.seed ||
+        resolvedAttempt.prompt === sourceAttempt.prompt
+      ) {
+        return
+      }
       const now = new Date().toISOString()
       await db.mistakes.update(mistakeId, {
         resolved: true,

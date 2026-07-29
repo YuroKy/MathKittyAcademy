@@ -59,4 +59,29 @@ describe('learning repository completion', () => {
     expect((await db.topicProgress.get(['profile-1', 'natural-numbers']))?.attempts).toBe(1)
     expect(await db.reviewItems.count()).toBe(1)
   })
+
+  it('persists a structured partial answer for session resume', async () => {
+    await db.sessions.add({
+      id: 'draft-session',
+      profileId: 'profile',
+      topicId: 'prime-factorization',
+      type: 'lesson',
+      status: 'active',
+      startedAt: '2026-07-29T10:00:00.000Z',
+      currentStage: 'practice',
+      currentExerciseIndex: 0,
+      exerciseSeeds: ['seed'],
+      earnedXp: 0,
+    })
+
+    await learningRepository.saveAnswerDraft(
+      'draft-session',
+      'matching-exercise',
+      { '12': '2 × 2 × 3' },
+    )
+
+    expect((await db.sessions.get('draft-session'))?.answerDrafts).toEqual({
+      'matching-exercise': { '12': '2 × 2 × 3' },
+    })
+  })
 })

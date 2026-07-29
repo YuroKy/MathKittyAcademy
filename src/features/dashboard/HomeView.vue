@@ -9,17 +9,20 @@ import MascotCard from '@/components/mascot/MascotCard.vue'
 import { curriculumTopics } from '@/content/curriculum/topics'
 import { recommendNextTopic } from '@/domain/learning/prerequisites'
 import {
-  learningRepository,
   type LearningStats,
 } from '@/infrastructure/repositories/learningRepository'
+import { progressRepository } from '@/infrastructure/repositories/progressRepository'
+import { sessionRepository } from '@/infrastructure/repositories/sessionRepository'
+import { statisticsRepository } from '@/infrastructure/repositories/statisticsRepository'
 import { useProfileStore } from '@/stores/profile'
-import type { GamificationState, TopicProgress } from '@/types/domain'
+import type { GamificationState, LearningSession, TopicProgress } from '@/types/domain'
 
 const router = useRouter()
 const profileStore = useProfileStore()
 const topicProgress = ref<TopicProgress[]>([])
 const gamification = ref<GamificationState>()
 const dueReviews = ref(0)
+const activeSession = ref<LearningSession>()
 const learningStats = ref<LearningStats>({
   completedLessons: 0,
   correctAttempts: 0,
@@ -54,6 +57,17 @@ const primaryAction = computed(() => {
       reason: `${dueReviews.value} вправ очікують у черзі повторення.`,
     }
   }
+  if (activeSession.value) {
+    const route =
+      activeSession.value.type === 'lesson' && activeSession.value.topicId
+        ? `/learn/${activeSession.value.topicId}`
+        : `/${activeSession.value.type}`
+    return {
+      route,
+      label: 'Продовжити заняття',
+      reason: 'Є незавершена сесія — продовжимо з останнього збереженого кроку.',
+    }
+  }
   if (
     !profileStore.activeProfile?.diagnosticCompletedAt &&
     !profileStore.activeProfile?.diagnosticSkippedAt
@@ -78,12 +92,19 @@ onMounted(async () => {
   if (!profileId) return
 
   try {
-    ;[topicProgress.value, gamification.value, dueReviews.value, learningStats.value] =
+    ;[
+      topicProgress.value,
+      gamification.value,
+      dueReviews.value,
+      learningStats.value,
+      activeSession.value,
+    ] =
       await Promise.all([
-        learningRepository.listTopicProgress(profileId),
-        learningRepository.getGamification(profileId),
-        learningRepository.countDueReviews(profileId),
-        learningRepository.getLearningStats(profileId),
+        progressRepository.listTopicProgress(profileId),
+        progressRepository.getGamification(profileId),
+        progressRepository.countDueReviews(profileId),
+        statisticsRepository.getLearningStats(profileId),
+        sessionRepository.findActiveSession(profileId),
       ])
   } catch {
     errorMessage.value = 'Не вдалося прочитати локальний прогрес. Спробуй оновити сторінку.'
