@@ -24,7 +24,7 @@ function progress(topicId: string, mastery: number): TopicProgress {
 
 describe('curriculum prerequisites', () => {
   it('makes the first topic ready without saved progress', () => {
-    const first = findTopic('natural-numbers')
+    const first = findTopic('same-and-different')
     expect(first).toBeDefined()
     expect(deriveTopicStatus(first!, new Map())).toBe('ready')
   })
@@ -56,7 +56,7 @@ describe('curriculum prerequisites', () => {
   })
 
   it('recommends the earliest available unfinished topic', () => {
-    expect(recommendNextTopic(curriculumTopics, [])?.id).toBe('natural-numbers')
+    expect(recommendNextTopic(curriculumTopics, [])?.id).toBe('same-and-different')
   })
 
   it('recommends fractions before the later geometry block in grade 5', () => {
@@ -65,7 +65,8 @@ describe('curriculum prerequisites', () => {
       .slice(0, fractionIndex)
       .map((topicId) => progress(topicId, 80))
 
-    expect(recommendNextTopic(curriculumTopics, completedFoundations)?.id).toBe('fraction-meaning')
+    const grade5Topics = curriculumTopics.filter((topic) => topic.gradeLevels.includes(5))
+    expect(recommendNextTopic(grade5Topics, completedFoundations)?.id).toBe('fraction-meaning')
   })
 
   it('recommends geometry after percentages in grade 5', () => {
@@ -74,8 +75,7 @@ describe('curriculum prerequisites', () => {
       .slice(0, geometryIndex)
       .map((topicId) => progress(topicId, 80))
 
-    expect(recommendNextTopic(curriculumTopics, completedNumberBlocks)?.id).toBe(
-      'measurement-geometry',
-    )
+    const grade5Topics = curriculumTopics.filter((topic) => topic.gradeLevels.includes(5))
+    expect(recommendNextTopic(grade5Topics, completedNumberBlocks)?.id).toBe('measurement-geometry')
   })
 })

@@ -27,7 +27,7 @@ describe('curriculum topic metadata', () => {
   it('keeps topics and prerequisites in a valid pedagogical order', () => {
     const topicById = new Map(curriculumTopics.map((topic) => [topic.id, topic]))
 
-    expect(curriculumTopics).toHaveLength(91)
+    expect(curriculumTopics).toHaveLength(146)
     expect(curriculumTopics.map((topic) => topic.order)).toEqual(
       Array.from({ length: curriculumTopics.length }, (_, index) => index + 1),
     )

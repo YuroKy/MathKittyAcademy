@@ -13,7 +13,7 @@ import {
   type AtlasTopic,
 } from '@/content/curriculum/atlas'
 import { curriculumTopics, findTopic } from '@/content/curriculum/topics'
-import { findGrade5Lesson } from '@/content/lessons/grade5Lessons'
+import { findFullLesson } from '@/content/lessons/fullLessons'
 import {
   deriveTopicStatus,
   missingPrerequisites,
@@ -25,7 +25,7 @@ import type { CurriculumTopic, SchoolGrade, TopicProgress } from '@/types/domain
 
 type RoomStatus = TopicProgress['status']
 type AtlasTopicStatus = RoomStatus | 'planned'
-type AtlasGrade = 5 | 6 | 7 | 8 | 9
+type AtlasGrade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 type AtlasGradeFilter = AtlasGrade | 'all'
 
 interface MapRoom {
@@ -49,6 +49,38 @@ interface AtlasGradeCategory {
 }
 
 const atlasGradeCategories: AtlasGradeCategory[] = [
+  {
+    grade: 1,
+    label: '1 клас',
+    description: 'Лічба й перші дії',
+    accent: '#6da83f',
+    soft: '#f0f8e4',
+    dark: '#47772b',
+  },
+  {
+    grade: 2,
+    label: '2 клас',
+    description: 'Розряди й множення',
+    accent: '#33a4a0',
+    soft: '#e3f7f6',
+    dark: '#21736f',
+  },
+  {
+    grade: 3,
+    label: '3 клас',
+    description: 'Письмові обчислення',
+    accent: '#347fbe',
+    soft: '#e7f2fb',
+    dark: '#245b8b',
+  },
+  {
+    grade: 4,
+    label: '4 клас',
+    description: 'Великі числа й геометрія',
+    accent: '#9a67c7',
+    soft: '#f2eafa',
+    dark: '#684493',
+  },
   {
     grade: 5,
     label: '5 клас',
@@ -245,7 +277,7 @@ function topicGradeLevels(topic: AtlasTopic): AtlasGrade[] {
     ? (topicGradesById.get(topic.liveTopicId) ?? [])
     : []
 
-  return grades.filter((grade): grade is AtlasGrade => grade >= 5 && grade <= 9)
+  return grades.filter((grade): grade is AtlasGrade => grade >= 1 && grade <= 9)
 }
 
 function topicMatchesGrade(
@@ -727,7 +759,7 @@ function launchSelected(preview = false): void {
 
         <div class="topic-modal__actions">
           <BaseButton
-            v-if="selectedRoom.status !== 'challenging' || findGrade5Lesson(selectedTopic.id)"
+            v-if="selectedRoom.status !== 'challenging' || findFullLesson(selectedTopic.id)"
             @click="launchSelected(false)"
           >
             <AppIcon name="play" />
@@ -735,7 +767,7 @@ function launchSelected(preview = false): void {
           </BaseButton>
           <BaseButton
             v-if="selectedRoom.status === 'challenging'"
-            :variant="findGrade5Lesson(selectedTopic.id) ? 'secondary' : 'primary'"
+            :variant="findFullLesson(selectedTopic.id) ? 'secondary' : 'primary'"
             @click="launchSelected(true)"
           >
             Спробувати 3-хв прев’ю

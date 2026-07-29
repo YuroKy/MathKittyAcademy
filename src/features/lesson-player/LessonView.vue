@@ -12,7 +12,7 @@ import PredictionChoice from '@/components/learning/PredictionChoice.vue'
 import TapReveal from '@/components/learning/TapReveal.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
 import { findTopic } from '@/content/curriculum/topics'
-import { findGrade5Lesson } from '@/content/lessons/grade5Lessons'
+import { findFullLesson } from '@/content/lessons/fullLessons'
 import { findTopicPreview } from '@/content/lessons/topicPreviews'
 import { buildLessonExerciseSet } from '@/domain/exercises/generator'
 import { areEquivalentAnswers } from '@/domain/exercises/rational'
@@ -46,7 +46,7 @@ const router = useRouter()
 const profileStore = useProfileStore()
 const topic = computed(() => findTopic(String(route.params.topicId)))
 const preview = computed(() => findTopicPreview(String(route.params.topicId)))
-const fullLesson = computed(() => findGrade5Lesson(String(route.params.topicId)))
+const fullLesson = computed(() => findFullLesson(String(route.params.topicId)))
 const requestedPreview = computed(() => route.query.mode === 'preview')
 const previewOnly = computed(() => requestedPreview.value || !fullLesson.value)
 const stageOrder = computed(() => (previewOnly.value ? previewStageOrder : fullStageOrder))

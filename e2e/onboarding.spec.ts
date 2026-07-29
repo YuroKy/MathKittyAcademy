@@ -26,7 +26,7 @@ test('creates a local profile and opens the first learning recommendation', asyn
   await createProfile(page, 'Марта')
 
   await expect(page.getByRole('heading', { name: 'Привіт, Марта!' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Натуральні числа й арифметика' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Однакове й різне' })).toBeVisible()
   await expect(page.getByRole('button', { name: /почати заняття/i })).toBeVisible()
 })
 

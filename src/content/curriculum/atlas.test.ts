@@ -20,10 +20,22 @@ describe('curriculum atlas', () => {
     const linkedLessonIds = atlasLocations
       .flatMap((location) => location.topics)
       .flatMap((topic) => (topic.liveTopicId ? [topic.liveTopicId] : []))
+    const linkedIds = new Set(linkedLessonIds)
+    const missingIds = [...curriculumIds].filter((topicId) => !linkedIds.has(topicId))
 
-    expect(linkedLessonIds).toHaveLength(curriculumTopics.length)
+    expect(linkedLessonIds, `missing atlas links: ${missingIds.join(', ')}`).toHaveLength(
+      curriculumTopics.length,
+    )
     expect(new Set(linkedLessonIds).size).toBe(curriculumTopics.length)
     expect(new Set(linkedLessonIds)).toEqual(curriculumIds)
     expect(linkedLessonIds.every((topicId) => curriculumIds.has(topicId))).toBe(true)
+  })
+
+  it('makes every atlas stop through the elementary route a live lesson', () => {
+    const elementaryLocations = atlasLocations.slice(0, 5)
+    const elementaryStops = elementaryLocations.flatMap((location) => location.topics)
+
+    expect(elementaryStops).toHaveLength(62)
+    expect(elementaryStops.every((topic) => topic.liveTopicId)).toBe(true)
   })
 })

@@ -1,3 +1,5 @@
+import { elementaryTopicIds } from '@/content/lessons/elementaryLessons'
+
 // Primary sequencing references:
 // - МОН learning programs based on Merzliak et al. for mathematics, grades 5–6 (2024)
 // - МОН model programs by Merzliak et al. for algebra and geometry, grades 7–9 (2023)
@@ -112,6 +114,7 @@ export const grade9TopicIds = [
 ] as const
 
 export const curriculumTopicSequence = [
+  ...elementaryTopicIds,
   ...grade5TopicIds,
   ...grade6TopicIds,
   ...grade7TopicIds,

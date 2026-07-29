@@ -51,6 +51,10 @@ const topicGroups = computed(() => {
     icon: 'paw' | 'ribbon' | 'star' | 'crown' | 'target'
     tone: string
   }[] = [
+    { grade: 1, title: '1 клас', icon: 'paw' as const, tone: 'mint' },
+    { grade: 2, title: '2 клас', icon: 'ribbon' as const, tone: 'blue' },
+    { grade: 3, title: '3 клас', icon: 'star' as const, tone: 'lavender' },
+    { grade: 4, title: '4 клас', icon: 'crown' as const, tone: 'pink' },
     { grade: 5, title: '5 клас', icon: 'paw' as const, tone: 'pink' },
     { grade: 6, title: '6 клас', icon: 'ribbon' as const, tone: 'mint' },
     { grade: 7, title: '7 клас', icon: 'star' as const, tone: 'blue' },

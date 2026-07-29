@@ -1,5 +1,7 @@
 import type { CurriculumTopic, SchoolGrade } from '@/types/domain'
 
+import { elementaryTopicSeeds } from '@/content/lessons/elementaryLessons'
+
 import { curriculumTopicSequence } from './sequence'
 
 interface CurriculumTopicSeed {
@@ -17,6 +19,7 @@ interface CurriculumTopicSeed {
 }
 
 const curriculumTopicSeeds: CurriculumTopicSeed[] = [
+  ...elementaryTopicSeeds,
   // 5 клас — математика
   {
     id: 'natural-numbers',
@@ -24,7 +27,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Натуральні числа й арифметика',
     shortDescription: 'Читаємо, порівнюємо й обчислюємо з натуральними числами.',
     tags: ['Натуральні числа', 'Арифметика'],
-    gradeLevels: [5],
+    gradeLevels: [4, 5],
     groupId: 'grade-5-math',
     prerequisiteTopicIds: [],
     skillIds: ['place-value', 'addition', 'subtraction', 'multiplication', 'division'],
@@ -36,7 +39,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Ділення з остачею',
     shortDescription: 'Ділимо натуральні числа, знаходимо остачу та перевіряємо результат.',
     tags: ['Натуральні числа', 'Ділення'],
-    gradeLevels: [5],
+    gradeLevels: [3, 4, 5],
     groupId: 'grade-5-math',
     prerequisiteTopicIds: ['natural-numbers'],
     skillIds: ['division-with-remainder', 'division-check'],
@@ -58,7 +61,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Порядок дій',
     shortDescription: 'Дужки, множення й додавання у правильній черзі.',
     tags: ['Числові вирази', 'Порядок дій'],
-    gradeLevels: [5],
+    gradeLevels: [3, 4, 5],
     groupId: 'grade-5-math',
     prerequisiteTopicIds: ['natural-numbers'],
     skillIds: ['operation-order'],
@@ -81,7 +84,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Величини та геометричні фігури',
     shortDescription: 'Вимірюємо величини, кути, периметри, площі та об’єми.',
     tags: ['Геометрія', 'Величини', 'Вимірювання'],
-    gradeLevels: [5],
+    gradeLevels: [4, 5],
     groupId: 'grade-5-geometry',
     prerequisiteTopicIds: ['natural-numbers'],
     skillIds: ['unit-conversion', 'angle-measurement', 'perimeter', 'area', 'volume'],
@@ -92,7 +95,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Координатний промінь і шкали',
     shortDescription: 'Позначаємо натуральні числа на промені та читаємо значення зі шкал.',
     tags: ['Координати', 'Шкали'],
-    gradeLevels: [5],
+    gradeLevels: [4, 5],
     groupId: 'grade-5-geometry',
     prerequisiteTopicIds: ['natural-numbers'],
     skillIds: ['coordinate-ray', 'read-scales'],
@@ -404,7 +407,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Коло, круг і сектор',
     shortDescription: 'Розрізняємо елементи кола, обчислюємо довжину кола та площу круга.',
     tags: ['Геометрія', 'Коло'],
-    gradeLevels: [6],
+    gradeLevels: [2, 6],
     groupId: 'grade-6-geometry',
     prerequisiteTopicIds: ['measurement-geometry'],
     skillIds: ['circle-elements', 'circumference', 'circle-area', 'sector'],
@@ -415,7 +418,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     title: 'Циліндр, конус, куля і сфера',
     shortDescription: 'Розпізнаємо тіла обертання, їхні елементи та моделі в навколишньому світі.',
     tags: ['Геометрія', 'Просторові фігури'],
-    gradeLevels: [6],
+    gradeLevels: [2, 6],
     groupId: 'grade-6-geometry',
     prerequisiteTopicIds: ['circle-measurements-grade6'],
     skillIds: ['cylinder', 'cone', 'sphere'],
