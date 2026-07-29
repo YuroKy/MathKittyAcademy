@@ -1,5 +1,7 @@
 import type { CurriculumTopic, SchoolGrade } from '@/types/domain'
 
+import { curriculumTopicSequence } from './sequence'
+
 interface CurriculumTopicSeed {
   id: string
   atlasTitle: string
@@ -517,7 +519,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Розкладання на множники'],
     gradeLevels: [7],
     groupId: 'grade-7-algebra',
-    prerequisiteTopicIds: ['polynomial-multiplication'],
+    prerequisiteTopicIds: ['polynomial-factorization'],
     skillIds: ['common-factor'],
   },
   {
@@ -539,7 +541,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Формули', 'Розкладання на множники'],
     gradeLevels: [7],
     groupId: 'grade-7-algebra',
-    prerequisiteTopicIds: ['factor-by-grouping'],
+    prerequisiteTopicIds: ['polynomial-multiplication'],
     skillIds: ['special-products', 'factor-special-products'],
   },
   {
@@ -561,7 +563,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Функції', 'Графіки'],
     gradeLevels: [7],
     groupId: 'grade-7-algebra',
-    prerequisiteTopicIds: ['linear-equations', 'coordinate-plane'],
+    prerequisiteTopicIds: ['systems-linear-equations', 'coordinate-plane'],
     skillIds: ['function-tables', 'linear-graphs', 'slope'],
   },
   {
@@ -572,7 +574,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Системи рівнянь'],
     gradeLevels: [7],
     groupId: 'grade-7-algebra',
-    prerequisiteTopicIds: ['linear-functions'],
+    prerequisiteTopicIds: ['linear-equations', 'coordinate-plane'],
     skillIds: ['graphical-systems', 'substitution-method', 'elimination-method'],
   },
 
@@ -608,7 +610,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Геометрія', 'Трикутники', 'Рівність фігур'],
     gradeLevels: [7],
     groupId: 'grade-7-geometry',
-    prerequisiteTopicIds: ['geometry-axioms-angles'],
+    prerequisiteTopicIds: ['triangle-elements'],
     skillIds: ['triangle-congruence', 'isosceles-triangle', 'triangle-elements'],
   },
   {
@@ -619,7 +621,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Геометрія', 'Трикутники'],
     gradeLevels: [7],
     groupId: 'grade-7-geometry',
-    prerequisiteTopicIds: ['triangles-congruence'],
+    prerequisiteTopicIds: ['geometry-axioms-angles'],
     skillIds: ['triangle-median', 'triangle-angle-bisector', 'triangle-altitude'],
   },
   {
@@ -689,7 +691,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Степені', 'Стандартний вигляд'],
     gradeLevels: [8],
     groupId: 'grade-8-algebra',
-    prerequisiteTopicIds: ['rational-equations', 'powers-monomials'],
+    prerequisiteTopicIds: ['rational-expressions', 'powers-monomials'],
     skillIds: ['integer-exponents', 'negative-exponents', 'scientific-notation'],
   },
   {
@@ -722,7 +724,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Квадратні рівняння'],
     gradeLevels: [8],
     groupId: 'grade-8-algebra',
-    prerequisiteTopicIds: ['real-numbers', 'polynomial-factorization'],
+    prerequisiteTopicIds: ['real-numbers', 'rational-equations', 'polynomial-factorization'],
     skillIds: ['discriminant', 'quadratic-formula', 'vieta-theorem'],
   },
   {
@@ -734,7 +736,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Алгебра', 'Квадратний тричлен'],
     gradeLevels: [8],
     groupId: 'grade-8-algebra',
-    prerequisiteTopicIds: ['quadratic-equations'],
+    prerequisiteTopicIds: ['square-roots', 'polynomial-factorization'],
     skillIds: ['quadratic-trinomial', 'factor-quadratic-trinomial'],
   },
 
@@ -1030,7 +1032,7 @@ const curriculumTopicSeeds: CurriculumTopicSeed[] = [
     tags: ['Геометрія', 'Координати'],
     gradeLevels: [9],
     groupId: 'grade-9-geometry',
-    prerequisiteTopicIds: ['coordinate-plane', 'linear-functions', 'circle-measurements-grade9'],
+    prerequisiteTopicIds: ['coordinate-plane', 'linear-functions'],
     skillIds: ['distance-formula', 'midpoint', 'line-circle-equations'],
   },
   {
@@ -1553,7 +1555,15 @@ const topicSubtopics: Readonly<Record<string, string[]>> = {
   ],
 }
 
-export const curriculumTopics: CurriculumTopic[] = curriculumTopicSeeds.map((topic, index) => {
+const curriculumTopicSeedById = new Map(curriculumTopicSeeds.map((topic) => [topic.id, topic]))
+
+export const curriculumTopics: CurriculumTopic[] = curriculumTopicSequence.map((topicId, index) => {
+  const topic = curriculumTopicSeedById.get(topicId)
+
+  if (!topic) {
+    throw new Error(`Curriculum sequence references missing topic: ${topicId}`)
+  }
+
   const { atlasTitle, estimatedMinutes = 14, subtopics, ...seed } = topic
   void atlasTitle
 

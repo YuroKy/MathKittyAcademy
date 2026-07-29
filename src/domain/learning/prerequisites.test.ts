@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { curriculumTopics, findTopic } from '@/content/curriculum/topics'
+import { grade5TopicIds } from '@/content/curriculum/sequence'
 import type { TopicProgress } from '@/types/domain'
 
 import {
@@ -56,5 +57,25 @@ describe('curriculum prerequisites', () => {
 
   it('recommends the earliest available unfinished topic', () => {
     expect(recommendNextTopic(curriculumTopics, [])?.id).toBe('natural-numbers')
+  })
+
+  it('recommends fractions before the later geometry block in grade 5', () => {
+    const fractionIndex = grade5TopicIds.indexOf('fraction-meaning')
+    const completedFoundations = grade5TopicIds
+      .slice(0, fractionIndex)
+      .map((topicId) => progress(topicId, 80))
+
+    expect(recommendNextTopic(curriculumTopics, completedFoundations)?.id).toBe('fraction-meaning')
+  })
+
+  it('recommends geometry after percentages in grade 5', () => {
+    const geometryIndex = grade5TopicIds.indexOf('measurement-geometry')
+    const completedNumberBlocks = grade5TopicIds
+      .slice(0, geometryIndex)
+      .map((topicId) => progress(topicId, 80))
+
+    expect(recommendNextTopic(curriculumTopics, completedNumberBlocks)?.id).toBe(
+      'measurement-geometry',
+    )
   })
 })

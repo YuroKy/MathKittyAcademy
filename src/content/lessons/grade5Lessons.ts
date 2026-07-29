@@ -1,23 +1,7 @@
+import { grade5TopicIds } from '@/content/curriculum/sequence'
 import type { FullLessonContent } from '@/types/domain'
 
-export const grade5TopicIds = [
-  'natural-numbers',
-  'division-with-remainder',
-  'powers-natural',
-  'order-of-operations',
-  'expressions-formulas-equations',
-  'measurement-geometry',
-  'coordinate-ray',
-  'tables-diagrams-grade5',
-  'fraction-meaning',
-  'fraction-types-mixed',
-  'comparing-fractions',
-  'fraction-addition-equal',
-  'decimals',
-  'decimal-operations',
-  'arithmetic-mean',
-  'percentages',
-] as const
+export { grade5TopicIds } from '@/content/curriculum/sequence'
 
 export type Grade5TopicId = (typeof grade5TopicIds)[number]
 

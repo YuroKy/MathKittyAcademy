@@ -7,11 +7,12 @@ import { grade5Lessons, grade5TopicIds } from './grade5Lessons'
 
 describe('grade 5 full lessons', () => {
   it('covers every grade 5 topic and no unrelated topic', () => {
-    const curriculumIds = curriculumTopics
+    const curriculumIdsInOrder = curriculumTopics
       .filter((topic) => topic.gradeLevels.includes(5))
       .map((topic) => topic.id)
-      .sort()
+    const curriculumIds = [...curriculumIdsInOrder].sort()
 
+    expect([...grade5TopicIds]).toEqual(curriculumIdsInOrder)
     expect([...grade5TopicIds].sort()).toEqual(curriculumIds)
     expect(Object.keys(grade5Lessons).sort()).toEqual(curriculumIds)
   })
