@@ -21,6 +21,8 @@ export interface StudentProfile {
   targetScore?: number
   dailyGoalMinutes: DailyGoalMinutes
   preferredStudyDays: number[]
+  diagnosticCompletedAt?: string
+  diagnosticSkippedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -58,6 +60,7 @@ export interface LearningSession {
   currentExerciseIndex?: number
   exerciseSeeds: string[]
   interactionState?: Record<string, unknown>
+  progressState?: LessonProgressState | ReviewProgressState | DiagnosticProgressState
   earnedXp: number
 }
 
@@ -68,7 +71,10 @@ export interface ExerciseAttempt {
   exerciseId: string
   templateId: string
   seed: string
+  topicId?: string
   skillIds: string[]
+  prompt?: string
+  expectedAnswer?: string
   submittedAnswer: unknown
   normalizedAnswer: unknown
   isCorrect: boolean
@@ -83,6 +89,7 @@ export interface ReviewItem {
   skillId: string
   intervalStep: number
   dueAt: string
+  lastReviewedAt?: string
   lastResult?: 'correct' | 'incorrect'
 }
 
@@ -93,6 +100,9 @@ export interface MistakeRecord {
   topicId: string
   skillIds: string[]
   errorType: ErrorType
+  explanationKey?: string
+  resolvedAttemptId?: string
+  similarExerciseSeed?: string
   resolved: boolean
   createdAt: string
   resolvedAt?: string
@@ -118,6 +128,37 @@ export interface AppSettings {
   updatedAt: string
 }
 
+export interface ActivityDay {
+  profileId: string
+  localDate: string
+  activeSeconds: number
+  completedSessions: number
+  dailyGoalAwarded: boolean
+  updatedAt: string
+}
+
+export interface LessonProgressState {
+  kind: 'lesson'
+  stage: string
+  exerciseIndex: number
+  exerciseSeeds: string[]
+  interactionState: Record<string, unknown>
+}
+
+export interface ReviewProgressState {
+  kind: 'review'
+  exerciseIndex: number
+  reviewItemIds: string[]
+  exerciseSeeds: string[]
+}
+
+export interface DiagnosticProgressState {
+  kind: 'diagnostic'
+  exerciseIndex: number
+  exerciseSeeds: string[]
+  selectedSkillIds: string[]
+}
+
 export interface CurriculumTopic {
   id: string
   slug: string
@@ -134,7 +175,21 @@ export interface CurriculumTopic {
   estimatedMinutes: number
 }
 
-export type ExerciseKind = 'singleChoice' | 'numericInput' | 'fractionInput'
+export type ExerciseKind =
+  | 'singleChoice'
+  | 'multipleChoice'
+  | 'numericInput'
+  | 'fractionInput'
+  | 'stepByStep'
+  | 'matching'
+
+export type AnswerValidationStrategy = 'rational' | 'decimalTolerance' | 'exact' | 'choice'
+
+export interface ErrorClassificationRule {
+  type: ErrorType
+  pattern: string
+  explanationKey: string
+}
 
 export interface ExerciseInstance {
   id: string
@@ -147,6 +202,10 @@ export interface ExerciseInstance {
   title?: string
   prompt: string
   expectedAnswer: string
+  choices?: string[]
+  validationStrategy?: AnswerValidationStrategy
+  tolerance?: number
+  errorRules?: ErrorClassificationRule[]
   hints: string[]
   solutionSteps: string[]
 }
@@ -165,10 +224,14 @@ export interface LessonExerciseTemplate {
   templateId: string
   skillIds: string[]
   difficulty: 1 | 2 | 3 | 4 | 5
-  kind: Exclude<ExerciseKind, 'singleChoice'>
+  kind: ExerciseKind
   title: string
   prompt: string
   expectedAnswer: string
+  choices?: string[]
+  validationStrategy?: AnswerValidationStrategy
+  tolerance?: number
+  errorRules?: ErrorClassificationRule[]
   hints: string[]
   solutionSteps: string[]
 }

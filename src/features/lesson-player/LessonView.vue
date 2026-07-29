@@ -11,11 +11,12 @@ import GuidedStepBuilder from '@/components/learning/GuidedStepBuilder.vue'
 import PredictionChoice from '@/components/learning/PredictionChoice.vue'
 import TapReveal from '@/components/learning/TapReveal.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
+import { useActivityTracker } from '@/composables/useActivityTracker'
 import { findTopic } from '@/content/curriculum/topics'
 import { findFullLesson } from '@/content/lessons/fullLessons'
 import { findTopicPreview } from '@/content/lessons/topicPreviews'
 import { buildLessonExerciseSet } from '@/domain/exercises/generator'
-import { areEquivalentAnswers } from '@/domain/exercises/rational'
+import { validateExerciseAnswer } from '@/domain/exercises/validateAnswer'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
 import { useProfileStore } from '@/stores/profile'
 import type { ExerciseInstance, LearningSession } from '@/types/domain'
@@ -44,6 +45,7 @@ const previewStageOrder: LessonStage[] = ['introduction', 'prediction', 'explore
 const route = useRoute()
 const router = useRouter()
 const profileStore = useProfileStore()
+useActivityTracker(() => profileStore.activeProfile?.id)
 const topic = computed(() => findTopic(String(route.params.topicId)))
 const preview = computed(() => findTopicPreview(String(route.params.topicId)))
 const fullLesson = computed(() => findFullLesson(String(route.params.topicId)))
@@ -261,14 +263,17 @@ async function submitAnswer(): Promise<void> {
 
   saving.value = true
   try {
-    const isCorrect = areEquivalentAnswers(answer.value, exercise.expectedAnswer)
+    const isCorrect = validateExerciseAnswer(exercise, answer.value)
     await learningRepository.recordAttempt({
       profileId,
       sessionId: activeSession.id,
       exerciseId: exercise.id,
       templateId: exercise.templateId,
       seed: exercise.seed,
+      topicId: exercise.topicId,
       skillIds: exercise.skillIds,
+      prompt: exercise.prompt,
+      expectedAnswer: exercise.expectedAnswer,
       submittedAnswer: answer.value,
       normalizedAnswer: answer.value.trim().replace(',', '.'),
       isCorrect,
@@ -301,7 +306,10 @@ async function revealAnswer(): Promise<void> {
       exerciseId: exercise.id,
       templateId: exercise.templateId,
       seed: exercise.seed,
+      topicId: exercise.topicId,
       skillIds: exercise.skillIds,
+      prompt: exercise.prompt,
+      expectedAnswer: exercise.expectedAnswer,
       submittedAnswer: 'Не знаю',
       normalizedAnswer: '',
       isCorrect: false,
@@ -453,7 +461,24 @@ async function nextExercise(): Promise<void> {
           <p class="exercise-question">{{ currentExercise.prompt }}</p>
 
           <form class="answer-form" @submit.prevent="submitAnswer">
-            <label class="field">
+            <div
+              v-if="currentExercise.choices?.length"
+              class="prediction-options"
+              role="group"
+              aria-label="Варіанти відповіді"
+            >
+              <button
+                v-for="choice in currentExercise.choices"
+                :key="choice"
+                type="button"
+                :aria-pressed="answer === choice"
+                :disabled="feedback === 'correct' || feedback === 'revealed'"
+                @click="answer = choice"
+              >
+                {{ choice }}
+              </button>
+            </div>
+            <label v-else class="field">
               <span>Твоя відповідь</span>
               <input
                 v-model="answer"

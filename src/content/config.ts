@@ -2,7 +2,8 @@ export const appConfig = {
   productName: 'Math Kitty Academy',
   mascotName: 'Мурка',
   version: '0.1.0',
-  dataSchemaVersion: 1,
+  dataSchemaVersion: 3,
+  contentVersion: 1,
   masteryThresholds: {
     foundationRequiredMax: 24,
     learningMax: 59,

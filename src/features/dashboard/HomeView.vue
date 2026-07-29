@@ -26,8 +26,14 @@ const learningStats = ref<LearningStats>({
   totalAttempts: 0,
   studyMinutes: 0,
   weeklyMinutes: [0, 0, 0, 0, 0, 0, 0],
+  firstAttemptAccuracy: 0,
+  finalCompletionRate: 0,
+  hintedCorrectAttempts: 0,
+  reviewAccuracy: 0,
+  commonErrorTypes: [],
 })
 const loading = ref(true)
+const errorMessage = ref('')
 
 const nextTopic = computed(() => recommendNextTopic(curriculumTopics, topicProgress.value))
 const nextProgress = computed(
@@ -38,12 +44,34 @@ const dailyMinutes = computed(() => learningStats.value.weeklyMinutes.at(-1) ?? 
 const masteredTopics = computed(
   () => topicProgress.value.filter((entry) => entry.status === 'mastered').length,
 )
-const accuracy = computed(() =>
-  learningStats.value.totalAttempts
-    ? Math.round((learningStats.value.correctAttempts / learningStats.value.totalAttempts) * 100)
-    : 0,
-)
+const accuracy = computed(() => learningStats.value.firstAttemptAccuracy)
 const questProgress = computed(() => Math.min(masteredTopics.value, 5))
+const primaryAction = computed(() => {
+  if (dueReviews.value > 0) {
+    return {
+      route: '/review',
+      label: 'Почати повторення',
+      reason: `${dueReviews.value} вправ очікують у черзі повторення.`,
+    }
+  }
+  if (
+    !profileStore.activeProfile?.diagnosticCompletedAt &&
+    !profileStore.activeProfile?.diagnosticSkippedAt
+  ) {
+    return {
+      route: '/diagnostic',
+      label: 'Пройти діагностику',
+      reason: 'Коротка діагностика допоможе обрати зручну стартову тему.',
+    }
+  }
+  return {
+    route: nextTopic.value ? `/learn/${nextTopic.value.id}` : '/map',
+    label: nextProgress.value > 0 ? 'Продовжити навчання' : 'Почати заняття',
+    reason: nextTopic.value
+      ? `Наступний рекомендований крок: ${nextTopic.value.title}.`
+      : 'Обери наступну тему на карті.',
+  }
+})
 
 onMounted(async () => {
   const profileId = profileStore.activeProfile?.id
@@ -57,6 +85,8 @@ onMounted(async () => {
         learningRepository.countDueReviews(profileId),
         learningRepository.getLearningStats(profileId),
       ])
+  } catch {
+    errorMessage.value = 'Не вдалося прочитати локальний прогрес. Спробуй оновити сторінку.'
   } finally {
     loading.value = false
   }
@@ -70,6 +100,10 @@ onMounted(async () => {
       Мурка розкладає книжки до заняття…
     </div>
 
+    <div v-else-if="errorMessage" class="lesson-error" role="alert">
+      <p>{{ errorMessage }}</p>
+      <BaseButton @click="router.go(0)">Спробувати ще раз</BaseButton>
+    </div>
     <template v-else>
       <div class="home-hero-grid">
         <article class="academy-hero">
@@ -95,11 +129,12 @@ onMounted(async () => {
 
             <BaseButton
               class="hero-cta"
-              @click="nextTopic && router.push(`/learn/${nextTopic.id}`)"
+              @click="router.push(primaryAction.route)"
             >
               <AppIcon name="play" />
-              {{ nextProgress > 0 ? 'Продовжити навчання' : 'Почати заняття' }}
+              {{ primaryAction.label }}
             </BaseButton>
+            <small>{{ primaryAction.reason }}</small>
           </div>
 
           <div class="academy-hero__mascot">
@@ -177,6 +212,14 @@ onMounted(async () => {
               <span>
                 <strong>Відкрий нову кімнату</strong>
                 <small>{{ masteredTopics }} із {{ curriculumTopics.length }} тем засвоєно</small>
+              </span>
+              <AppIcon name="arrow-right" />
+            </button>
+            <button type="button" @click="router.push('/mistakes')">
+              <span class="task-icon task-icon--pink"><AppIcon name="sparkles" /></span>
+              <span>
+                <strong>Заплутані клубочки</strong>
+                <small>Повернися до помилок і спробуй схожий крок</small>
               </span>
               <AppIcon name="arrow-right" />
             </button>

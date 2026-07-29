@@ -6,6 +6,7 @@ import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import ProgressBar from '@/components/base/ProgressBar.vue'
 import ContentTags from '@/components/learning/ContentTags.vue'
+import { useDialogFocus } from '@/composables/useDialogFocus'
 import {
   atlasLocations,
   atlasTopicCount,
@@ -142,6 +143,15 @@ const selectedLocationId = ref(firstAtlasLocation.id)
 const selectedGrade = ref<AtlasGradeFilter>('all')
 const searchQuery = ref('')
 const locationPanel = ref<HTMLElement>()
+const errorMessage = ref('')
+const topicDialog = ref<HTMLElement>()
+useDialogFocus(
+  computed(() => Boolean(selectedTopic.value)),
+  topicDialog,
+  () => {
+    selectedTopic.value = undefined
+  },
+)
 
 const progressMap = computed(() => new Map(progress.value.map((entry) => [entry.topicId, entry])))
 const recommendation = computed(() => recommendNextTopic(curriculumTopics, progress.value))
@@ -247,7 +257,11 @@ const gradeContextStyle = computed<Record<string, string>>(() => {
 
 onMounted(async () => {
   const profileId = profileStore.activeProfile?.id
-  if (profileId) progress.value = await learningRepository.listTopicProgress(profileId)
+  try {
+    if (profileId) progress.value = await learningRepository.listTopicProgress(profileId)
+  } catch {
+    errorMessage.value = 'Не вдалося прочитати прогрес карти. Теми все одно можна переглядати.'
+  }
 
   if (activeLocationId.value) {
     selectedLocationId.value = activeLocationId.value
@@ -397,6 +411,7 @@ function launchSelected(preview = false): void {
 
 <template>
   <section class="atlas-page page-shell" :style="gradeContextStyle">
+    <p v-if="errorMessage" class="inline-error" role="alert">{{ errorMessage }}</p>
     <header class="atlas-heading">
       <div class="atlas-heading__copy">
         <span class="eyebrow">Велика математична експедиція</span>
@@ -701,6 +716,7 @@ function launchSelected(preview = false): void {
       @click.self="selectedTopic = undefined"
     >
       <aside
+        ref="topicDialog"
         class="topic-modal"
         role="dialog"
         aria-modal="true"

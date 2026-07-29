@@ -12,7 +12,6 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['murka-anime-avatar-v2.png', 'murka-anime-maskable-v2.png'],
       manifest: {
         name: 'Math Kitty Academy',
         short_name: 'Math Kitty',
@@ -40,7 +39,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
-        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
+        globIgnores: ['social/**', '**/*.map'],
         cleanupOutdatedCaches: true,
       },
       devOptions: {

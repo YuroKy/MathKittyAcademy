@@ -1,4 +1,6 @@
 import { appConfig } from '@/content/config'
+import { localDateKey } from '@/domain/activity/localDate'
+import { classifyExerciseError, errorExplanationKeys } from '@/domain/exercises/classifyError'
 import { updateMastery } from '@/domain/mastery/updateMastery'
 import { scheduleNextReview } from '@/domain/review/schedule'
 import type {
@@ -6,6 +8,7 @@ import type {
   GamificationState,
   LearningSession,
   ReviewItem,
+  SkillProgress,
   TopicProgress,
 } from '@/types/domain'
 
@@ -17,7 +20,10 @@ export interface RecordAttemptInput {
   exerciseId: string
   templateId: string
   seed: string
+  topicId: string
   skillIds: string[]
+  prompt: string
+  expectedAnswer: string
   submittedAnswer: string
   normalizedAnswer: string
   isCorrect: boolean
@@ -30,6 +36,11 @@ export interface LearningStats {
   totalAttempts: number
   studyMinutes: number
   weeklyMinutes: number[]
+  firstAttemptAccuracy: number
+  finalCompletionRate: number
+  hintedCorrectAttempts: number
+  reviewAccuracy: number
+  commonErrorTypes: Array<{ type: string; count: number }>
 }
 
 class LearningRepository {
@@ -47,9 +58,11 @@ class LearningRepository {
   }
 
   async getLearningStats(profileId: string, at = new Date()): Promise<LearningStats> {
-    const [sessions, attempts] = await Promise.all([
+    const [sessions, attempts, activityDays, mistakes] = await Promise.all([
       db.sessions.where('profileId').equals(profileId).toArray(),
       db.attempts.where('profileId').equals(profileId).toArray(),
+      db.activityDays.where('profileId').equals(profileId).toArray(),
+      db.mistakes.where('profileId').equals(profileId).toArray(),
     ])
     const completedLessons = sessions.filter(
       (session) => session.type === 'lesson' && session.status === 'completed',
@@ -61,26 +74,52 @@ class LearningRepository {
       date.setDate(startOfToday.getDate() - (6 - index))
       return date
     })
-    const sessionMinutes = (session: LearningSession): number => {
-      if (!session.completedAt) return 0
-      const duration = Math.round(
-        (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60_000,
-      )
-      return Math.min(60, Math.max(1, duration))
-    }
+    const activityMap = new Map(activityDays.map((day) => [day.localDate, day]))
     const weeklyMinutes = weekDates.map((date) => {
-      const dayKey = date.toISOString().slice(0, 10)
-      return completedLessons
-        .filter((session) => session.completedAt?.slice(0, 10) === dayKey)
-        .reduce((total, session) => total + sessionMinutes(session), 0)
+      const dayKey = localDateKey(date)
+      return Math.round((activityMap.get(dayKey)?.activeSeconds ?? 0) / 60)
     })
+    const attemptsByExercise = new Map<string, ExerciseAttempt[]>()
+    for (const attempt of attempts) {
+      const key = `${attempt.sessionId}:${attempt.exerciseId}`
+      attemptsByExercise.set(key, [...(attemptsByExercise.get(key) ?? []), attempt])
+    }
+    const groups = [...attemptsByExercise.values()].map((entries) =>
+      entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    )
+    const firstCorrect = groups.filter((entries) => entries[0]?.isCorrect).length
+    const finalCorrect = groups.filter((entries) => entries.at(-1)?.isCorrect).length
+    const reviewAttempts = attempts.filter((attempt) =>
+      sessions.some((session) => session.id === attempt.sessionId && session.type === 'review'),
+    )
+    const errorCounts = new Map<string, number>()
+    for (const mistake of mistakes) {
+      errorCounts.set(mistake.errorType, (errorCounts.get(mistake.errorType) ?? 0) + 1)
+    }
 
     return {
       completedLessons: completedLessons.length,
       correctAttempts: attempts.filter((attempt) => attempt.isCorrect).length,
       totalAttempts: attempts.length,
-      studyMinutes: completedLessons.reduce((total, session) => total + sessionMinutes(session), 0),
+      studyMinutes: Math.round(
+        activityDays.reduce((total, day) => total + day.activeSeconds, 0) / 60,
+      ),
       weeklyMinutes,
+      firstAttemptAccuracy: groups.length ? Math.round((firstCorrect / groups.length) * 100) : 0,
+      finalCompletionRate: groups.length ? Math.round((finalCorrect / groups.length) * 100) : 0,
+      hintedCorrectAttempts: attempts.filter(
+        (attempt) => attempt.isCorrect && attempt.hintLevelUsed > 0,
+      ).length,
+      reviewAccuracy: reviewAttempts.length
+        ? Math.round(
+            (reviewAttempts.filter((attempt) => attempt.isCorrect).length / reviewAttempts.length) *
+              100,
+          )
+        : 0,
+      commonErrorTypes: [...errorCounts.entries()]
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3),
     }
   }
 
@@ -131,6 +170,22 @@ class LearningRepository {
   }
 
   async recordAttempt(input: RecordAttemptInput): Promise<ExerciseAttempt> {
+    const existingAttempts = await db.attempts
+      .where('sessionId')
+      .equals(input.sessionId)
+      .filter(
+        (entry) =>
+          entry.exerciseId === input.exerciseId &&
+          entry.normalizedAnswer === input.normalizedAnswer &&
+          entry.hintLevelUsed === input.hintLevelUsed,
+      )
+      .toArray()
+    const existing = existingAttempts.at(-1)
+    if (existing) return existing
+
+    const errorType = input.isCorrect
+      ? undefined
+      : classifyExerciseError(input.normalizedAnswer, input.expectedAnswer, input.topicId)
     const attempt: ExerciseAttempt = {
       id: crypto.randomUUID(),
       profileId: input.profileId,
@@ -138,57 +193,93 @@ class LearningRepository {
       exerciseId: input.exerciseId,
       templateId: input.templateId,
       seed: input.seed,
+      topicId: input.topicId,
       skillIds: [...input.skillIds],
+      prompt: input.prompt,
+      expectedAnswer: input.expectedAnswer,
       submittedAnswer: input.submittedAnswer,
       normalizedAnswer: input.normalizedAnswer,
       isCorrect: input.isCorrect,
       hintLevelUsed: input.hintLevelUsed,
-      errorType: input.isCorrect ? undefined : 'calculationError',
+      errorType,
       createdAt: new Date().toISOString(),
     }
 
-    await db.attempts.add(attempt)
+    await db.transaction('rw', db.attempts, db.mistakes, async () => {
+      await db.attempts.add(attempt)
+      if (!attempt.isCorrect) {
+        const duplicate = await db.mistakes
+          .where('profileId')
+          .equals(input.profileId)
+          .filter(
+            (entry) =>
+              entry.attemptId === attempt.id ||
+              (entry.topicId === input.topicId &&
+                entry.createdAt === attempt.createdAt &&
+                entry.skillIds.join('|') === input.skillIds.join('|')),
+          )
+          .first()
+        if (!duplicate) {
+          await db.mistakes.add({
+            id: crypto.randomUUID(),
+            profileId: input.profileId,
+            attemptId: attempt.id,
+            topicId: input.topicId,
+            skillIds: [...input.skillIds],
+            errorType: errorType ?? 'unknown',
+            explanationKey: errorExplanationKeys[errorType ?? 'unknown'],
+            resolved: false,
+            createdAt: attempt.createdAt,
+          })
+        }
+      }
+    })
     return attempt
   }
 
   async completeLesson(session: LearningSession): Promise<void> {
     if (!session.topicId) throw new Error('У навчальній сесії відсутня тема.')
 
-    const attempts = (await db.attempts.where('sessionId').equals(session.id).toArray()).sort(
-      (left, right) => left.createdAt.localeCompare(right.createdAt),
-    )
-    const latestByExercise = new Map<string, ExerciseAttempt>()
-    for (const attempt of attempts) latestByExercise.set(attempt.exerciseId, attempt)
-
-    const latestAttempts = [...latestByExercise.values()]
-    const correct = latestAttempts.filter((attempt) => attempt.isCorrect).length
-    const existingProgress = await db.topicProgress.get([session.profileId, session.topicId])
-    let mastery = existingProgress?.mastery ?? 0
-    for (const attempt of latestAttempts) {
-      mastery = updateMastery(mastery, {
-        isCorrect: attempt.isCorrect,
-        hintLevelUsed: attempt.hintLevelUsed,
-        independent: true,
-      }).next
-    }
-
-    if (latestAttempts.length > 0 && correct / latestAttempts.length >= 2 / 3) {
-      mastery = Math.max(60, mastery)
-    }
-
-    const now = new Date()
-    const nowIso = now.toISOString()
-    const status = mastery >= appConfig.masteryThresholds.masteredMin ? 'mastered' : 'inProgress'
-    const currentGamification = await db.gamification.get(session.profileId)
-    const earnedXp = appConfig.xp.lessonCompleted
-    const nextXp = (currentGamification?.xp ?? 0) + earnedXp
-    const level = Math.floor(nextXp / 100) + 1
-    const skillIds = [...new Set(latestAttempts.flatMap((attempt) => attempt.skillIds))]
-
     await db.transaction(
       'rw',
-      [db.sessions, db.topicProgress, db.gamification, db.reviewItems, db.mistakes],
+      [db.sessions, db.attempts, db.topicProgress, db.skillProgress, db.gamification, db.reviewItems],
       async () => {
+        const storedSession = await db.sessions.get(session.id)
+        if (!storedSession) throw new Error('Навчальну сесію не знайдено.')
+        if (storedSession.status === 'completed') return
+
+        const attempts = (await db.attempts.where('sessionId').equals(session.id).toArray()).sort(
+          (left, right) => left.createdAt.localeCompare(right.createdAt),
+        )
+        const latestByExercise = new Map<string, ExerciseAttempt>()
+        for (const attempt of attempts) latestByExercise.set(attempt.exerciseId, attempt)
+        const latestAttempts = [...latestByExercise.values()]
+        const correct = latestAttempts.filter((attempt) => attempt.isCorrect).length
+        const existingProgress = await db.topicProgress.get([session.profileId, session.topicId!])
+        let mastery = existingProgress?.mastery ?? 0
+        for (const attempt of latestAttempts) {
+          mastery = updateMastery(mastery, {
+            isCorrect: attempt.isCorrect,
+            hintLevelUsed: attempt.hintLevelUsed,
+            independent: attempt.hintLevelUsed === 0,
+          }).next
+        }
+        if (latestAttempts.length > 0 && correct / latestAttempts.length >= 2 / 3) {
+          mastery = Math.max(60, mastery)
+        }
+
+        const now = new Date()
+        const nowIso = now.toISOString()
+        const status =
+          mastery >= appConfig.masteryThresholds.masteredMin ? 'mastered' : 'inProgress'
+        const currentGamification = await db.gamification.get(session.profileId)
+        const newlyMastered = status === 'mastered' && existingProgress?.status !== 'mastered'
+        const earnedXp =
+          appConfig.xp.lessonCompleted + (newlyMastered ? appConfig.xp.topicMastered : 0)
+        const nextXp = (currentGamification?.xp ?? 0) + earnedXp
+        const level = Math.floor(nextXp / 100) + 1
+        const skillIds = [...new Set(latestAttempts.flatMap((attempt) => attempt.skillIds))]
+
         await db.sessions.update(session.id, {
           status: 'completed',
           completedAt: nowIso,
@@ -207,6 +298,24 @@ class LearningRepository {
           ...(status === 'mastered' ? { masteredAt: nowIso } : {}),
         })
 
+        const unlockedAchievementIds = [
+          ...new Set([
+            ...(currentGamification?.unlockedAchievementIds ?? []),
+            'first-lesson-completed',
+            ...(newlyMastered ? ['first-topic-mastered'] : []),
+          ]),
+        ]
+        if (
+          status === 'mastered' &&
+          (await db.topicProgress
+            .where('profileId')
+            .equals(session.profileId)
+            .filter((entry) => entry.status === 'mastered')
+            .count()) >= 5 &&
+          !unlockedAchievementIds.includes('five-topics-mastered')
+        ) {
+          unlockedAchievementIds.push('five-topics-mastered')
+        }
         await db.gamification.put({
           profileId: session.profileId,
           xp: nextXp,
@@ -214,39 +323,48 @@ class LearningRepository {
           currentStreak: currentGamification?.currentStreak ?? 0,
           longestStreak: currentGamification?.longestStreak ?? 0,
           streakFreezes: currentGamification?.streakFreezes ?? 1,
-          unlockedAchievementIds: [
-            ...new Set([
-              ...(currentGamification?.unlockedAchievementIds ?? []),
-              'first-lesson-completed',
-            ]),
-          ],
+          unlockedAchievementIds,
           unlockedCosmeticIds: currentGamification?.unlockedCosmeticIds ?? ['desk-pink-notebook'],
         })
 
         for (const skillId of skillIds) {
-          const scheduled = scheduleNextReview(now, 0, 'correct')
-          const item: ReviewItem = {
-            id: `${session.profileId}:${skillId}`,
+          const relevant = latestAttempts.filter((attempt) => attempt.skillIds.includes(skillId))
+          const existingSkill = await db.skillProgress.get([session.profileId, skillId])
+          let skillMastery = existingSkill?.mastery ?? 0
+          for (const attempt of relevant) {
+            skillMastery = updateMastery(skillMastery, {
+              isCorrect: attempt.isCorrect,
+              hintLevelUsed: attempt.hintLevelUsed,
+              independent: attempt.hintLevelUsed === 0,
+            }).next
+          }
+          const skillProgress: SkillProgress = {
             profileId: session.profileId,
             skillId,
-            intervalStep: scheduled.intervalStep,
-            dueAt: scheduled.dueAt,
-            lastResult: 'correct',
+            mastery: skillMastery,
+            attempts: (existingSkill?.attempts ?? 0) + relevant.length,
+            correctAttempts:
+              (existingSkill?.correctAttempts ?? 0) + relevant.filter((entry) => entry.isCorrect).length,
+            hintedCorrectAttempts:
+              (existingSkill?.hintedCorrectAttempts ?? 0) +
+              relevant.filter((entry) => entry.isCorrect && entry.hintLevelUsed > 0).length,
+            lastPracticedAt: nowIso,
           }
-          await db.reviewItems.put(item)
-        }
+          await db.skillProgress.put(skillProgress)
 
-        for (const attempt of latestAttempts.filter((entry) => !entry.isCorrect)) {
-          await db.mistakes.add({
-            id: crypto.randomUUID(),
-            profileId: session.profileId,
-            attemptId: attempt.id,
-            topicId: session.topicId!,
-            skillIds: attempt.skillIds,
-            errorType: attempt.errorType ?? 'unknown',
-            resolved: false,
-            createdAt: attempt.createdAt,
-          })
+          const existingReview = await db.reviewItems.get(`${session.profileId}:${skillId}`)
+          if (!existingReview) {
+            const scheduled = scheduleNextReview(now, 0, 'correct')
+            const item: ReviewItem = {
+              id: `${session.profileId}:${skillId}`,
+              profileId: session.profileId,
+              skillId,
+              intervalStep: scheduled.intervalStep,
+              dueAt: scheduled.dueAt,
+              lastResult: 'correct',
+            }
+            await db.reviewItems.put(item)
+          }
         }
       },
     )

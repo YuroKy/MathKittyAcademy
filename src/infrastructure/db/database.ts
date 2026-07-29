@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 
 import type {
+  ActivityDay,
   AppSettings,
   ExerciseAttempt,
   GamificationState,
@@ -22,9 +23,10 @@ export class MathKittyDatabase extends Dexie {
   mistakes!: Table<MistakeRecord, string>
   gamification!: Table<GamificationState, string>
   settings!: Table<AppSettings, string>
+  activityDays!: Table<ActivityDay, [string, string]>
 
-  constructor() {
-    super('math-kitty-academy')
+  constructor(name = 'math-kitty-academy') {
+    super(name)
 
     this.version(1).stores({
       profiles: 'id, updatedAt',
@@ -58,6 +60,28 @@ export class MathKittyDatabase extends Dexie {
             if (entry.status === 'locked' || entry.status === 'available') {
               entry.status = 'ready'
             }
+          })
+      })
+
+    this.version(3)
+      .stores({
+        profiles: 'id, updatedAt',
+        topicProgress: '[profileId+topicId], profileId, topicId, status, lastPracticedAt',
+        skillProgress: '[profileId+skillId], profileId, skillId, lastPracticedAt',
+        sessions: 'id, profileId, [profileId+status], [profileId+topicId], startedAt',
+        attempts: 'id, profileId, sessionId, topicId, exerciseId, createdAt',
+        reviewItems: 'id, profileId, [profileId+skillId], [profileId+dueAt]',
+        mistakes: 'id, profileId, topicId, errorType, [profileId+resolved], createdAt',
+        gamification: 'profileId',
+        settings: 'profileId',
+        activityDays: '[profileId+localDate], profileId, localDate',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table('attempts')
+          .toCollection()
+          .modify((attempt: ExerciseAttempt) => {
+            attempt.topicId ??= 'unknown'
           })
       })
   }

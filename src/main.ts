@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 
 import App from '@/app/App.vue'
 import { router } from '@/app/router'
+import '@/styles/tokens.css'
 import '@/styles/main.css'
 import 'katex/dist/katex.min.css'
 

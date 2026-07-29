@@ -33,8 +33,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/diagnostic',
     name: 'diagnostic',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'diagnostic' },
+    component: () => import('@/features/diagnostic/DiagnosticView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/home',
@@ -51,8 +51,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/review',
     name: 'review',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'review' },
+    component: () => import('@/features/review/ReviewView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/map',
@@ -63,8 +63,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/mistakes',
     name: 'mistakes',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'mistakes' },
+    component: () => import('@/features/mistakes/MistakesView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/progress',
@@ -81,8 +81,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/settings',
     name: 'settings',
-    component: () => import('@/features/placeholder/FeaturePreviewView.vue'),
-    meta: { ...protectedRoute, feature: 'settings' },
+    component: () => import('@/features/settings/SettingsView.vue'),
+    meta: protectedRoute,
   },
   {
     path: '/:pathMatch(.*)*',

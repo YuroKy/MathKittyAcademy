@@ -27,7 +27,22 @@ test('creates a local profile and opens the first learning recommendation', asyn
 
   await expect(page.getByRole('heading', { name: 'Привіт, Марта!' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Однакове й різне' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /почати заняття/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /пройти діагностику/i })).toBeVisible()
+})
+
+test('starts and resumes the diagnostic after reload', async ({ page }) => {
+  await createProfile(page, 'Софія')
+  await page.getByRole('button', { name: /пройти діагностику/i }).click()
+  await page.getByRole('button', { name: 'Почати діагностику' }).click()
+  await expect(page.getByRole('heading', { name: 'Арифметика' })).toBeVisible()
+  await page.getByLabel('Відповідь').fill('75')
+  await page.getByRole('button', { name: 'Відповісти' }).click()
+  await page.getByRole('button', { name: 'Продовжити' }).click()
+  await expect(page.getByRole('heading', { name: 'Порядок дій' })).toBeVisible()
+
+  await page.reload()
+
+  await expect(page.getByRole('heading', { name: 'Порядок дій' })).toBeVisible()
 })
 
 test('lets a learner preview an advanced topic in any order', async ({ page }) => {
@@ -83,4 +98,41 @@ test('opens a complete flow for a newly authored grade 5 lesson', async ({ page 
 
   await expect(page.getByRole('heading', { name: 'Знайди остачу' })).toBeVisible()
   await expect(page.getByText('Яка остача від ділення 47 на 6?')).toBeVisible()
+
+  for (const [answer, nextLabel] of [
+    ['5', 'Наступна вправа'],
+    ['11', 'Наступна вправа'],
+    ['130', 'Завершити заняття'],
+  ] as const) {
+    await page.getByLabel('Твоя відповідь').fill(answer)
+    await page.getByRole('button', { name: 'Перевірити' }).click()
+    await page.getByRole('button', { name: nextLabel }).click()
+  }
+  await expect(page.getByRole('heading', { name: 'Ще один надійний крок' })).toBeVisible()
+  await page.goto('/progress')
+  await expect(page.getByRole('heading', { name: 'Мій прогрес' })).toBeVisible()
+  await expect(
+    page.getByRole('progressbar', { name: /40 XP · ще 60 до наступного рівня/ }),
+  ).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByRole('progressbar', { name: /40 XP · ще 60 до наступного рівня/ }),
+  ).toBeVisible()
+})
+
+test('exports and previews a full local backup', async ({ page }) => {
+  await createProfile(page, 'Дарина')
+  await page.getByRole('link', { name: 'Налаштування' }).first().click()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Експортувати JSON' }).click()
+  const download = await downloadPromise
+  const backupPath = await download.path()
+  expect(backupPath).toBeTruthy()
+
+  await page
+    .getByLabel('Вибрати backup для відновлення')
+    .setInputFiles(backupPath!)
+  await expect(page.getByText('1 профілів')).toBeVisible()
+  await expect(page.getByText(/Імпорт повністю замінить локальні дані/)).toBeVisible()
 })

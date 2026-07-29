@@ -6,6 +6,7 @@ import AppIcon from '@/components/base/AppIcon.vue'
 import OfflineIndicator from '@/components/base/OfflineIndicator.vue'
 import PwaPrompt from '@/components/base/PwaPrompt.vue'
 import { learningRepository } from '@/infrastructure/repositories/learningRepository'
+import { settingsRepository } from '@/infrastructure/repositories/settingsRepository'
 import { useProfileStore } from '@/stores/profile'
 import type { GamificationState } from '@/types/domain'
 
@@ -16,7 +17,7 @@ const gamification = ref<GamificationState>()
 const showNavigation = computed(
   () =>
     Boolean(profileStore.activeProfile) &&
-    !['lesson', 'onboarding', 'welcome', 'profiles', 'entry'].includes(String(route.name)),
+    !['lesson', 'review', 'diagnostic', 'onboarding', 'welcome', 'profiles', 'entry'].includes(String(route.name)),
 )
 
 onMounted(() => profileStore.initialize())
@@ -25,6 +26,12 @@ watch(
   [() => profileStore.activeProfile?.id, () => route.fullPath],
   async ([profileId]) => {
     gamification.value = profileId ? await learningRepository.getGamification(profileId) : undefined
+    const settings = profileId ? await settingsRepository.get(profileId) : undefined
+    document.documentElement.classList.toggle(
+      'user-reduced-motion',
+      settings?.reducedMotion ?? window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    )
+    document.documentElement.classList.toggle('user-high-contrast', settings?.highContrast ?? false)
   },
   { immediate: true },
 )
@@ -62,6 +69,10 @@ watch(
           <RouterLink to="/collection">
             <AppIcon name="collection" />
             <span>Колекція</span>
+          </RouterLink>
+          <RouterLink to="/settings">
+            <AppIcon name="settings" />
+            <span>Налаштування</span>
           </RouterLink>
         </nav>
 
@@ -116,6 +127,10 @@ watch(
       <RouterLink to="/collection">
         <AppIcon name="collection" />
         <small>Колекція</small>
+      </RouterLink>
+      <RouterLink to="/settings">
+        <AppIcon name="settings" />
+        <small>Налаштування</small>
       </RouterLink>
     </nav>
 

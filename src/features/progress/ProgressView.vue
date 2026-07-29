@@ -21,14 +21,16 @@ const stats = ref<LearningStats>({
   totalAttempts: 0,
   studyMinutes: 0,
   weeklyMinutes: [0, 0, 0, 0, 0, 0, 0],
+  firstAttemptAccuracy: 0,
+  finalCompletionRate: 0,
+  hintedCorrectAttempts: 0,
+  reviewAccuracy: 0,
+  commonErrorTypes: [],
 })
 const loading = ref(true)
+const errorMessage = ref('')
 
-const accuracy = computed(() =>
-  stats.value.totalAttempts
-    ? Math.round((stats.value.correctAttempts / stats.value.totalAttempts) * 100)
-    : 0,
-)
+const accuracy = computed(() => stats.value.firstAttemptAccuracy)
 const levelProgress = computed(() => (gamification.value?.xp ?? 0) % 100)
 const maxActivity = computed(() => Math.max(...stats.value.weeklyMinutes, 15))
 const masteredCount = computed(
@@ -111,6 +113,8 @@ onMounted(async () => {
       learningRepository.listTopicProgress(profileId),
       learningRepository.getLearningStats(profileId),
     ])
+  } catch {
+    errorMessage.value = 'Не вдалося прочитати локальну статистику.'
   } finally {
     loading.value = false
   }
@@ -130,6 +134,7 @@ onMounted(async () => {
       Перегортаємо сторінки щоденника…
     </div>
 
+    <div v-else-if="errorMessage" class="lesson-error" role="alert">{{ errorMessage }}</div>
     <div v-else class="progress-book">
       <section class="progress-book__page progress-book__page--left">
         <article class="level-journal-card">
@@ -171,7 +176,7 @@ onMounted(async () => {
             </span>
             <small>Точність</small>
             <strong>{{ accuracy }}%</strong>
-            <p>{{ stats.correctAttempts }} правильних спроб</p>
+            <p>Фінально виконано {{ stats.finalCompletionRate }}% · review {{ stats.reviewAccuracy }}%</p>
           </article>
           <article>
             <span class="journal-stat__icon journal-stat__icon--lavender">
@@ -194,6 +199,17 @@ onMounted(async () => {
               "
               compact
             />
+          </article>
+          <article>
+            <span class="journal-stat__icon journal-stat__icon--pink">
+              <AppIcon name="sparkles" />
+            </span>
+            <small>Підказки й клубочки</small>
+            <strong>{{ stats.hintedCorrectAttempts }} з підказкою</strong>
+            <p v-if="stats.commonErrorTypes.length">
+              Частіше трапляється: {{ stats.commonErrorTypes.map((entry) => `${entry.type} · ${entry.count}`).join(', ') }}
+            </p>
+            <p v-else>Ще недостатньо даних для закономірностей</p>
           </article>
         </div>
       </section>

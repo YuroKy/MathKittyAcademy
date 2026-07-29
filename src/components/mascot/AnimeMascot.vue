@@ -33,7 +33,7 @@ const moodLabels: Record<MascotMood, string> = {
 <template>
   <img
     :class="['anime-mascot-image', `anime-mascot-image--${props.mood}`]"
-    src="/murka-anime-v2.png"
+    src="/murka-anime-v2.webp"
     :alt="`Аніме-кицька Мурка ${moodLabels[props.mood]}`"
     draggable="false"
   />

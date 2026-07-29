@@ -42,6 +42,32 @@ export const useProfileStore = defineStore('profile', () => {
     return profile
   }
 
+  async function refresh(): Promise<void> {
+    profiles.value = await profileRepository.list()
+    if (activeProfile.value) {
+      activeProfile.value = profiles.value.find((profile) => profile.id === activeProfile.value?.id)
+    }
+  }
+
+  async function updateActiveProfile(
+    changes: Parameters<typeof profileRepository.update>[1],
+  ): Promise<void> {
+    if (!activeProfile.value) return
+    activeProfile.value = await profileRepository.update(activeProfile.value.id, changes)
+    await refresh()
+  }
+
+  async function resetActiveProgress(): Promise<void> {
+    if (activeProfile.value) await profileRepository.resetProgress(activeProfile.value.id)
+  }
+
+  async function deleteActiveProfile(): Promise<void> {
+    if (!activeProfile.value) return
+    await profileRepository.delete(activeProfile.value.id)
+    clearActiveProfile()
+    await refresh()
+  }
+
   function selectProfile(profile: StudentProfile): void {
     activeProfile.value = profile
     localStorage.setItem(ACTIVE_PROFILE_KEY, profile.id)
@@ -60,6 +86,10 @@ export const useProfileStore = defineStore('profile', () => {
     hasProfiles,
     initialize,
     createProfile,
+    refresh,
+    updateActiveProfile,
+    resetActiveProgress,
+    deleteActiveProfile,
     selectProfile,
     clearActiveProfile,
   }

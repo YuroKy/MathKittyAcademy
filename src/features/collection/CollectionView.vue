@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import MascotCard from '@/components/mascot/MascotCard.vue'
+import { useDialogFocus } from '@/composables/useDialogFocus'
 import {
   learningRepository,
   type LearningStats,
@@ -36,10 +37,24 @@ const stats = ref<LearningStats>({
   totalAttempts: 0,
   studyMinutes: 0,
   weeklyMinutes: [0, 0, 0, 0, 0, 0, 0],
+  firstAttemptAccuracy: 0,
+  finalCompletionRate: 0,
+  hintedCorrectAttempts: 0,
+  reviewAccuracy: 0,
+  commonErrorTypes: [],
 })
 const activeCategory = ref<CollectionCategory>('all')
 const selectedItem = ref<CollectionItem>()
+const collectionDialog = ref<HTMLElement>()
+useDialogFocus(
+  computed(() => Boolean(selectedItem.value)),
+  collectionDialog,
+  () => {
+    selectedItem.value = undefined
+  },
+)
 const loading = ref(true)
+const errorMessage = ref('')
 
 const masteredCount = computed(
   () => progress.value.filter((entry) => entry.status === 'mastered').length,
@@ -174,6 +189,8 @@ onMounted(async () => {
       learningRepository.listTopicProgress(profileId),
       learningRepository.getLearningStats(profileId),
     ])
+  } catch {
+    errorMessage.value = 'Не вдалося відкрити локальну колекцію.'
   } finally {
     loading.value = false
   }
@@ -213,6 +230,7 @@ onMounted(async () => {
       Відкриваємо сторінки альбому…
     </div>
 
+    <div v-else-if="errorMessage" class="lesson-error" role="alert">{{ errorMessage }}</div>
     <div v-else class="collection-album">
       <div class="album-rings" aria-hidden="true">
         <span v-for="ring in 7" :key="ring"></span>
@@ -259,6 +277,7 @@ onMounted(async () => {
       @click.self="selectedItem = undefined"
     >
       <aside
+        ref="collectionDialog"
         class="collection-modal"
         role="dialog"
         aria-modal="true"
